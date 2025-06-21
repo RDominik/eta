@@ -6,7 +6,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 # InfluxDB Konfiguration
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "dein-api-token-hier"
+INFLUX_TOKEN = os.environ.get("INFLUXDB_TOKEN")
 INFLUX_ORG = "dominik"
 INFLUX_BUCKET = "goodwe"
 
