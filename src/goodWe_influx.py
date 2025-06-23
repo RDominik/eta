@@ -22,14 +22,22 @@ async def main():
     try:
         while True:
             data = await inverter.read_runtime_data()
-            ts = time.time_ns()
+            # timestamp separat behandeln
+            ts = data.pop("timestamp", datetime.utcnow())
+
+            point = Point("inverter_data").tag("device", inverter.serial_number)
 
             for key, value in data.items():
-                point = Point("inverter_data").tag("device", inverter.serial_number).field(key, float(value)).time(ts)
-                write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+                # Nur gültige Datentypen als Felder einfügen
+                if isinstance(value, (int, float)):
+                   point = point.field(key, value)
+                elif isinstance(value, str):
+                    point = point.tag(key, value)
 
-            print(f"Gesendet: {len(data)} Felder")
-            await asyncio.sleep(1)
+            point = point.time(ts)
+
+            write_api.write(bucket=bucket, org=org, record=point)
+            await asyncio.sleep(3)
 
     except KeyboardInterrupt:
         print("Beendet.")
