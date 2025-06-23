@@ -3,6 +3,7 @@ import goodwe
 import time
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+import os
 
 # InfluxDB Konfiguration
 INFLUX_URL = "http://localhost:8086"
