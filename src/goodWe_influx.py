@@ -38,7 +38,7 @@ async def main():
 
             point = point.time(ts)
 
-            write_api.write(bucket=bucket, org=org, record=point)
+            write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
             await asyncio.sleep(3)
 
     except KeyboardInterrupt:
