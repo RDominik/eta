@@ -15,7 +15,7 @@ client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
 async def main():
-    inverter = await goodwe.connect('192.168.188.67', 8899)
+    inverter = await goodwe.connect('192.168.188.67', 8899, 'ET', 0, 1, 10)
     print("Verbindung hergestellt. Sende Daten an InfluxDB... (Strg+C zum Beenden)")
 
     try:
