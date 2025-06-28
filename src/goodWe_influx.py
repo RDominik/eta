@@ -20,6 +20,15 @@ print("InfluxDB-Token:", INFLUX_TOKEN)
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
+# Beispiel: datetime in String umwandeln
+def serialize_data(d):
+    def convert(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return obj
+
+    return {k: convert(v) for k, v in d.items()}
+
 async def connect_inverter(ip, port, retries=999, delay=30):
     for attempt in range(retries):
         try:
@@ -41,8 +50,9 @@ async def main():
         while True:
             data = await inverter.read_runtime_data()
             #  Aktuelle Daten in eine Datei schreiben
-            with open("current_influx_data.txt", "w") as f:
-                json.dump(data, f, indent=2)
+            with open("current_influx_data.json", "w") as f:
+                json.dump(serialize_data(data), f, indent=2)
+
             # timestamp separat behandeln
             point = write_point(data, inverter)
 
