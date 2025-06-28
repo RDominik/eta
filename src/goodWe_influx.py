@@ -61,7 +61,7 @@ async def main():
     print("Sende Daten an InfluxDB... (Strg+C zum Beenden)")
     try:
         while True:
-            data = read_inverter(inverter)
+            data = await read_inverter(inverter)
             #  Aktuelle Daten in eine Datei schreiben
             with open(filePath_dataJson, "w") as f:
                 json.dump(serialize_data(data), f, indent=2)
