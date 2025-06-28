@@ -4,6 +4,8 @@ import time
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import os
+import json
+import influxPoints
 from datetime import datetime
 
 
@@ -18,23 +20,39 @@ print("InfluxDB-Token:", INFLUX_TOKEN)
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
-async def main():
-    inverter = await goodwe.connect('192.168.188.67', 8899, 'ET', 0, 1, 50)
-    print("Verbindung hergestellt. Sende Daten an InfluxDB... (Strg+C zum Beenden)")
+async def connect_inverter(ip, port, retries=999, delay=30):
+    for attempt in range(retries):
+        try:
+            inverter = await goodwe.connect(ip, port, 'ET', 0, 1, 1)
+            print("Verbindung zum Wechselrichter hergestellt.")
+            return inverter
+        except Exception as e:
+            print(f"[Fehler] Verbindung fehlgeschlagen: {e}")
+            print(f"Versuche erneut in {delay} Sekunden... (Versuch {attempt + 1})")
+            await asyncio.sleep(delay)
+    raise RuntimeError("Verbindung zum Wechselrichter konnte nach mehreren Versuchen nicht hergestellt werden.")
 
+async def main():
+#inverter = await goodwe.connect('192.168.188.120', 8899, 'ET', 0, 1, 1)
+#print("Verbindung hergestellt. Sende Daten an InfluxDB... (Strg+C zum Beenden)")
+    inverter = await connect_inverter('192.168.188.120', 8899)
+    print("Sende Daten an InfluxDB... (Strg+C zum Beenden)")
     try:
         while True:
             data = await inverter.read_runtime_data()
+            #  Aktuelle Daten in eine Datei schreiben
+            with open("current_influx_data.txt", "w") as f:
+                json.dump(data, f, indent=2)
             # timestamp separat behandeln
             ts = data.pop("timestamp", datetime.utcnow())
             point = Point("inverter_data").tag("device", inverter.serial_number)
 
-            for key, value in data.items():
-                # Nur gÃ¼ltige Datentypen als Felder einfÃ¼gen
-                if isinstance(value, (int, float)):
-                   point = point.field(key, value)
-                elif isinstance(value, str):
-                    point = point.tag(key, value)
+            # for key, value in data.items():
+            #     # Nur gÃ¼ltige Datentypen als Felder einfÃ¼gen
+            #     if isinstance(value, (int, float)):
+            #        point = point.field(key, value)
+            #     elif isinstance(value, str):
+            #         point = point.tag(key, value)
 
             point = point.time(ts)
             # Beispiel: nur wenige Felder als Test
@@ -217,7 +235,7 @@ async def main():
             print(f"\n--- Neue Messung ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
             
              # ?? Rohdaten anzeigen
-            print("Wird geschrieben:", point.to_line_protocol())
+#print("Wird geschrieben:", point.to_line_protocol())
             write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
             await asyncio.sleep(5)
 
