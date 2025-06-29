@@ -28,6 +28,7 @@ def write_point(data, inverter):
     point.field("vpv4", float(data["vpv4"]))
     point.field("ipv4", float(data["ipv4"]))
     point.field("ppv4", int(data["ppv4"]))
+    point.field("ppv", int(data["ppv"]))
     point.field("vgrid", float(data["vgrid"]))
     point.field("igrid", float(data["igrid"]))
     point.field("fgrid", float(data["fgrid"]))
