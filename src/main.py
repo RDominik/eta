@@ -4,7 +4,7 @@ import asyncio
 async def main():
     while True:
         try:
-            await inverter.readGoodwe.read_data()
+            await inverter.readGoodwe()
         except Exception as e:
             print(f"Error reading data: {e}")
         try:
