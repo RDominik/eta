@@ -3,7 +3,7 @@
 # === KONFIGURATION ===
 PROJECT_DIR="$(cd "$(dirname "$0")"; pwd)"
 VENV_DIR="$PROJECT_DIR/.venv"
-REQUIREMENTS="$PROJECT_DIR/pyPackageList/requirements.txt"
+REQUIREMENTS="$PROJECT_DIR/pyPackageList/list.txt"
 SCRIPT="$PROJECT_DIR/main.py"
 
 # === Neueste Python-Version finden ===
@@ -22,7 +22,7 @@ echo ">> Virtuelle Umgebung aktiviert."
 
 # === Anforderungen installieren ===
 if [ -f "$REQUIREMENTS" ]; then
-    echo ">> Installiere Pakete aus requirements.txt..."
+    echo ">> Installiere Pakete aus list.txt..."
     pip install --upgrade pip
     pip install -r "$REQUIREMENTS"
     touch "$VENV_DIR/last_requirements_check"
