@@ -5,7 +5,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")"; pwd)"
 VENV_DIR="$PROJECT_DIR/.venv"
 REQUIREMENTS="$PROJECT_DIR/pyPackageList/list.txt"
 SCRIPT="$PROJECT_DIR/main.py"
-
+WATCH=1
 # === Neueste Python-Version finden ===
 PYTHON=$(ls /usr/bin/python3* | grep -E 'python3\.[0-9]+$' | sort -V | tail -n 1)
 echo ">> Verwende Python-Interpreter: $PYTHON"
@@ -25,6 +25,8 @@ if [ -f "$REQUIREMENTS" ]; then
     echo ">> Installiere Pakete aus list.txt..."
     pip install --upgrade pip
     pip install -r "$REQUIREMENTS"
+    echo "$REQUIREMENTS"
+    pip install goodwe
     touch "$VENV_DIR/last_requirements_check"
 else
     echo ">> Keine requirements.txt gefunden Ã¼berspringe Paketinstallation."
@@ -44,13 +46,21 @@ if [ "$WATCH" == "1" ]; then
         echo ">> Starte Python-Skript..."
         python "$SCRIPT" &
         PID=$!
+        echo $PID > "$PID_FILE"
 
-        echo ">> Ãœberwache $SCRIPT und $REQUIREMENTS auf Ã„nderungen..."
-        inotifywait -e modify "$SCRIPT" "$REQUIREMENTS" > /dev/null
+        echo ">> Überwache $SCRIPT und $REQUIREMENTS auf Änderungen..."
+        inotifywait -r -e modify,close_write,move,create,delete "$PROJECT_DIR" &
+        WID=$!
 
-        echo ">> Ã„nderung erkannt â€“ beende Python-Prozess $PID..."
-        kill $PID
-        wait $PID 2>/dev/null
+        # Warte darauf, dass einer der beiden Prozesse fertig wird
+        wait -n $PID $WID
+
+        # Wenn inotify ausgelöst wurde ? kill Python
+        if kill -0 $PID 2>/dev/null; then
+            echo ">> Änderung erkannt – beende Python-Prozess $PID..."
+            kill $PID
+            wait $PID 2>/dev/null
+        fi
         # === NEU: Anforderungen neu installieren, falls requirements.txt geÃ¤ndert wurde
         if [ "$REQUIREMENTS" -nt "$VENV_DIR/last_requirements_check" ]; then
             echo ">> Neue requirements.txt erkannt â€“ installiere erneut..."

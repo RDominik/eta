@@ -13,6 +13,8 @@ fi
 # Umgebung aktivieren
 source "$VENV_DIR/bin/activate"
 
+export INFLUX_TOKEN="CKicKENZvt3Zhu2hPBABenhNR2IttRwuT0cfCFB2rRp8ZnttuZhOprInAJe0jRfOKPXMvBQymJGbfokZQ8avTA=="
+
 # Pakete installieren (falls noch nicht installiert)
 echo "ðŸ“¥ Installiere benÃ¶tigte Python-Pakete..."
 pip install --upgrade pip

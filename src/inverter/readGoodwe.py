@@ -21,6 +21,6 @@ print("InfluxDB-Token:", INFLUX_TOKEN)
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
-def readGoodwe():
+def readInverter():
     # Beispiel: datetime in String umwandeln
     print("Starte Goodwe Inverter Datenlesung...")

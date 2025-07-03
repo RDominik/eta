@@ -1,16 +1,16 @@
-import inverter.readGoodwe
+from inverter import readGoodwe
 import asyncio
+import time
 
-async def main():
-    while True:
-        try:
-            await inverter.readGoodwe()
-        except Exception as e:
-            print(f"Error reading data: {e}")
-        try:
-            print("Waiting for 1 second before next read...")
-        except Exception as e:
-            print(f"Error during wait: {e}")
-
-        await asyncio.sleep(5)
+while True:
+    try:
+        readGoodwe.readInverter()
+        print("Hello")
+    except Exception as e:
+        print(f"Error reading inverter data: {e}")
+    try:
+        print("Waiting for 2 second before next read...")
+    except ExceptioSn as e:
+        print(f"Error during wait test: {e}")
+    time.sleep(5)
 
