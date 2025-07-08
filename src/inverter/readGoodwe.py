@@ -12,14 +12,16 @@ current_path = os.path.dirname(os.path.abspath(__file__))
 filePath_dataJson = os.path.join(current_path, "current_influx_data.json")
 # InfluxDB Konfiguration
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN")
+INFLUX_TOKEN = "CKicKENZvt3Zhu2hPBABenhNR2IttRwuT0cfCFB2rRp8ZnttuZhOprInAJe0jRfOKPXMvBQymJGbfokZQ8avTA=="
 # INFLUX_TOKEN = "0R7WsRl_3hfg3mYaC4KvCqGsgNmJ2YFgAv8u8EQFzQL0oKWGJaIFAnXKHLil2DiWHMr2KZmbG1xcF-uEivfM4w=="
 INFLUX_ORG = "dominik"
 INFLUX_BUCKET = "goodwe"
 print("InfluxDB-Token:", INFLUX_TOKEN)
+print("InfluxDB token copy CKicKENZvt3Zhu2hPBABenhNR2IttRwuT0cfCFB2rRp8ZnttuZhOprInAJe0jRfOKPXMvBQymJGbfokZQ8avTA==")
 # InfluxDB Client initialisieren
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
+
 
 def serialize_data(d):
     def convert(obj):
@@ -29,19 +31,19 @@ def serialize_data(d):
 
     return {k: convert(v) for k, v in d.items()}
 
-async def connect_inverter(ip, port, retries=999, delay=5):
+async def connect_inverter(ip, port, retries=999, delay=20):
     for attempt in range(retries):
         try:
             inverter = await goodwe.connect(ip, port, 'ET', 0, 1, 1)
-            print("Verbindung zum Wechselrichter hergestellt.")
+            print("Verbindung zum Wechselrichter hergestellt. {ip}")
             return inverter
         except Exception as e:
-            print(f"[Fehler] Verbindung fehlgeschlagen: {e}")
+            print(f"[Fehler] Verbindung {ip} fehlgeschlagen: {e}")
             print(f"Versuche erneut in {delay} Sekunden... (Versuch {attempt + 1})")
             await asyncio.sleep(delay)
     raise RuntimeError("Verbindung zum Wechselrichter konnte nach mehreren Versuchen nicht hergestellt werden.")
 
-async def read_inverter(inverter, retries=999, delay=5):
+async def read_inverter(inverter, retries=999, delay=20):
     for attempt in range(retries):    
         try:
             data = await inverter.read_runtime_data()

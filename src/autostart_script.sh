@@ -9,6 +9,7 @@ WATCH=1
 # === Neueste Python-Version finden ===
 PYTHON=$(ls /usr/bin/python3* | grep -E 'python3\.[0-9]+$' | sort -V | tail -n 1)
 echo ">> Verwende Python-Interpreter: $PYTHON"
+export INFLUX_TOKEN="CKicKENZvt3Zhu2hPBABenhNR2IttRwuT0cfCFB2rRp8ZnttuZhOprInAJe0jRfOKPXMvBQymJGbfokZQ8avTA=="
 
 # === Virtuelle Umgebung erstellen, falls nicht vorhanden ===
 if [ ! -d "$VENV_DIR" ]; then
@@ -49,7 +50,7 @@ if [ "$WATCH" == "1" ]; then
         echo $PID > "$PID_FILE"
 
         echo ">> Überwache $SCRIPT und $REQUIREMENTS auf Änderungen..."
-        inotifywait -r -e modify,close_write,move,create,delete "$PROJECT_DIR" &
+        inotifywait -r -e modify,close_write,move,create,delete "$SCRIPT" &
         WID=$!
 
         # Warte darauf, dass einer der beiden Prozesse fertig wird
