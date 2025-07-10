@@ -1,4 +1,3 @@
-Deutsch &bull; [English](apikeys-en.md)
 
 # API Keys
 
