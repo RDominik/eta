@@ -6,7 +6,7 @@ class goE_wallbox:
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
-    def get_status(self, filter="alw,acu,amp,car,pnp,eto"):
+    def get_status(self, filter="alw,acu,amp,car,pnp,eto,frc"):
         # alw = car allowed to charge
         # acu = actual current, amp = max current 
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
@@ -93,11 +93,11 @@ def load_control(inverter_data):
     if currentTarget >= 6:
         print(f"Setze Ladestrom auf {currentTarget}A")
         status['amp'] = goE.set_current(currentTarget)
-    
-        # Optional: Ladevorgang starten
-        goE.set_charging(True)
+        if status["frc"] != 0:
+            goE.set_charging(True)
     else:
-        goE.set_charging(False)
+        if status["frc"] != 1:
+            goE.set_charging(False)
 
     
 # Beispielnutzung
