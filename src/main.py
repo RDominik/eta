@@ -1,23 +1,48 @@
 from inverter import readGoodwe
 import asyncio
 import time
+import schedule
+from goE import goEcontrol
 
-RERUN_TIME = 5  # seconds
+RERUN_TIME = 1  # seconds
+# inverter_data = {
+#     "house_consumption": 1000,
+#     "ppv": 5000,
+#     "battery_soc": 80
+# }
+inverter_data = None
+inverter = None
 
-async def main():
+async def init_routines():
+    print("Initializing routines...")
     try:
         inverter = await readGoodwe.initInverter()
     except Exception as e:
         print(f"Error initializing inverter: {e}")
-        return
 
+async def call_inverter():
+    try:
+        inverter_data = await readGoodwe.readInverter(inverter)
+        print("inverter measurement finished ")
+    except Exception as e:
+        print(f"Error reading inverter data: {e}")
+
+def call_wallbox():
+    try:
+        goEcontrol.load_control(inverter_data)
+        print("wallbox control finished ")
+    except Exception as e:
+        print(f"Error calling wallbox: {e}")
+    
+schedule.every(5).seconds.do(call_inverter)
+schedule.every(30).seconds.do(call_wallbox)
+
+async def main():
+
+    init_routines()
     while True:
-        try:
-            await readGoodwe.readInverter(inverter)
-            print("inverter measurement finished ")
-        except Exception as e:
-            print(f"Error reading inverter data: {e}")
 
+        schedule.run_pending()
        # try:
         #    print("Waiting for 2 seconds before next read...")
         #except Exception as e:

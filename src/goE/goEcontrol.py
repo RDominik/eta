@@ -38,12 +38,12 @@ goE = goE_wallbox(IP)
 ppvList = deque(maxlen=10)
 houseConsumptionList = deque(maxlen=10)
 
-def calculate_surplus_current(surplusPower, phases=3, voltage=230, cos_phi=0.95, minCurrent=6, maxCurrent=14):
+def current_to_power(surplusPower, phases=3, voltage=230, cos_phi=0.95, minCurrent=6, maxCurrent=14):
 
     if surplusPower <= 0:
         return 0
 
-    current = surplusPower * 1000 / (phases * voltage * cos_phi)
+    current = surplusPower / (phases * voltage * cos_phi)
     current = int(current)  # ganzzahlig runden
 
     if current < minCurrent:
@@ -51,7 +51,7 @@ def calculate_surplus_current(surplusPower, phases=3, voltage=230, cos_phi=0.95,
 
     return min(current, maxCurrent)
     
-def calc_current(inverter_data, phases):
+def calc_current(inverter_data, phases, charge_current=0, carState=0):
     # Einzelne Werte auslesen
     house_consumption = inverter_data.get("house_consumption")
     ppv = inverter_data.get("ppv")
@@ -59,22 +59,35 @@ def calc_current(inverter_data, phases):
     ppvList.append(ppv)
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
-    if ppv_mean > house_mean:
-        charge_current = calculate_surplus_current(ppv_mean-house_mean)
+    
+    ppv_current = current_to_power(ppv_mean)
+    house_current = current_to_power(house_mean)
+    if ppv_current < 6:
+        target_current = 0
+    elif carState == 2:  # carState == Charging
+        print("Ladevorgang läuft bereits.")
+        surplus_current_charging = ppv_current - (house_current-charge_current)
+        if surplus_current_charging > 6:
+            target_current = surplus_current_charging
+        else:
+            target_current = 0
     else:
-        charge_current = 0
+        target_current = ppv_current - house_current
+
     battery_soc = inverter_data.get("battery_soc")
     print(f"house_consumption: {house_consumption} ")
     print(f"power photovoltaik: {ppv} ")
     print(f"battery_soc: {battery_soc} ")
-    return charge_current
+
+  
+    return target_current
 
 def load_control(inverter_data):
     # Beispiel: Wert lesen
 
     """Einmal den Ladezustand abfragen und den Ladestrom setzen"""
     status = goE.get_status()
-    currentTarget = calc_current(inverter_data, status["pnp"])
+    currentTarget = calc_current(inverter_data, status["pnp"], status["acu"], status["car"])
 
     print("Aktueller Ladezustand:", status)
     if currentTarget >= 6:
