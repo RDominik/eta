@@ -82,21 +82,35 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
 def load_control(inverter_data):
     # Beispiel: Wert lesen
 
-    """Einmal den Ladezustand abfragen und den Ladestrom setzen"""
-    status = goE.get_status()
-    currentTarget = calc_current(inverter_data, status["pnp"], status["acu"], status["car"])
-
-    print("Aktueller Ladezustand:", status)
-    if currentTarget >= 6:
-        print(f"Setze Ladestrom auf {currentTarget}A")
-        status['amp'] = goE.set_current(currentTarget)
-        if status["frc"] != 0:
-            goE.set_charging(True)
-    else:
-        if status["frc"] != 1:
-            goE.set_charging(False)
+    """Query the charging status once and set the charging current"""
+    try:
+        status = goE.get_status()
+        print("Charge state:", status)
+        currentTarget = calc_current(inverter_data, status["pnp"], status["acu"], status["car"])
+    except requests.RequestException as e:
+        print(f"error get wallbox status: {e}")
+        currentTarget = 0
+        status["frc"] = 0
+        return
 
     
+
+    
+    if currentTarget >= 6:
+        print(f"charge current set to {currentTarget}A")
+        status['amp'] = goE.set_current(currentTarget)
+        if status["frc"] != 0:
+            try:
+                goE.set_charging(True)
+            except requests.RequestException as e:
+                print(f"error set wallbox charging: {e}")
+    else:
+        try:
+            if status["frc"] != 1:
+                goE.set_charging(False)
+        except requests.RequestException as e:
+            print(f"error set wallbox charging: {e}")
+
 # Beispielnutzung
 if __name__ == "__main__":
     print("Ladezustand vorher:")
