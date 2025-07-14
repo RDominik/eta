@@ -60,7 +60,7 @@ async def initInverter():
     print("Send data to InfluxDB...")
     return inverter
 
-async def readInverter(inverter):
+async def getInverter(inverter):
     data = await read_inverter(inverter)
     #  Aktuelle Daten in eine Datei schreiben
     with open(filePath_dataJson, "w") as f:
@@ -70,3 +70,4 @@ async def readInverter(inverter):
     point = write_point(data, inverter)
     print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+    return data

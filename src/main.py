@@ -22,6 +22,7 @@ async def init_routines():
     return inverter
 
 async def call_inverter():
+    global inverter_data
     try:
         inverter_data = await readGoodwe.readInverter(inverter)
         print("inverter measurement finished ")
@@ -43,7 +44,7 @@ async def main():
     global inverter_data
     inverter = await init_routines()
     while True:
-        inverter_data = await readGoodwe.readInverter(inverter)
+        inverter_data = await readGoodwe.getInverter(inverter)
         schedule.run_pending()
        # #try:
         #    print("Waiting for 2 seconds before next read...")
