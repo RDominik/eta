@@ -53,8 +53,8 @@ def current_to_power(surplusPower, phases=3, voltage=230, cos_phi=0.95, minCurre
     
 def calc_current(inverter_data, phases, charge_current=0, carState=0):
     # Einzelne Werte auslesen
-    house_consumption = inverter_data.get("house_consumption")
-    ppv = inverter_data.get("ppv")
+    house_consumption = inverter_data["house_consumption"]
+    ppv = inverter_data["ppv"]
     houseConsumptionList.append(house_consumption) 
     ppvList.append(ppv)
     ppv_mean = statistics.mean(ppvList)

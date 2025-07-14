@@ -1,3 +1,4 @@
 goodwe
 influxdb-client
 schedule
+requests
