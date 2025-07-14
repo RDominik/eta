@@ -38,12 +38,12 @@ goE = goE_wallbox(IP)
 ppvList = deque(maxlen=10)
 houseConsumptionList = deque(maxlen=10)
 
-def current_to_power(surplusPower, phases=3, voltage=230, cos_phi=0.95, minCurrent=6, maxCurrent=14):
+def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurrent=14):
 
     if surplusPower <= 0:
         return 0
 
-    current = surplusPower / (phases * voltage * cos_phi)
+    current = surplusPower / (phases * voltage)
     current = int(current)  # ganzzahlig runden
 
     if current < minCurrent:
@@ -52,16 +52,13 @@ def current_to_power(surplusPower, phases=3, voltage=230, cos_phi=0.95, minCurre
     return min(current, maxCurrent)
     
 def calc_current(inverter_data, phases, charge_current=0, carState=0):
-    # Einzelne Werte auslesen
-    house_consumption = inverter_data["house_consumption"]
-    ppv = inverter_data["ppv"]
-    houseConsumptionList.append(house_consumption) 
-    ppvList.append(ppv)
+    houseConsumptionList.append(inverter_data["house_consumption"]) 
+    ppvList.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
     
-    ppv_current = current_to_power(ppv_mean)
-    house_current = current_to_power(house_mean)
+    ppv_current = power_to_current(ppv_mean)
+    house_current = power_to_current(house_mean)
     if ppv_current < 6:
         target_current = 0
     elif carState == 2:  # carState == Charging
@@ -74,9 +71,9 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     else:
         target_current = ppv_current - house_current
 
-    battery_soc = inverter_data.get("battery_soc")
-    print(f"house_consumption: {house_consumption} ")
-    print(f"power photovoltaik: {ppv} ")
+    battery_soc = inverter_data["battery_soc"]
+    print(f"house_consumption: {house_current} ")
+    print(f"power photovoltaik: {ppv_mean} ")
     print(f"battery_soc: {battery_soc} ")
 
   
