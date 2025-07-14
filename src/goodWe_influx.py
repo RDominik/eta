@@ -5,7 +5,7 @@ from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import os
 import json
-from influxPoints import write_point
+from inverter.influxPoints import write_point
 from datetime import datetime
 
 current_path = os.path.dirname(os.path.abspath(__file__))
@@ -71,8 +71,6 @@ async def main():
 
             print(f"\n--- Neue Messung ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
             
-             # ?? Rohdaten anzeigen
-#print("Wird geschrieben:", point.to_line_protocol())
             write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
             await asyncio.sleep(5)
 
