@@ -46,11 +46,6 @@ async def main():
     while True:
         inverter_data = await readGoodwe.getInverter(inverter)
         schedule.run_pending()
-       # #try:
-        #    print("Waiting for 2 seconds before next read...")
-        #except Exception as e:
-        #    print(f"Error during wait test: {e}")
-        print(f"wait for {RERUN_TIME} seconds")
         await asyncio.sleep(RERUN_TIME)
 
 if __name__ == "__main__":
