@@ -42,21 +42,15 @@ def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurre
 
     if surplusPower <= 0:
         return 0
-
-    current = surplusPower / (phases * voltage)
-    current = int(current)  # ganzzahlig runden
-
-    if current < minCurrent:
-        return 0  # Wallbox würde bei zu wenig current nicht laden
-
-    return min(current, maxCurrent)
+    return surplusPower / (phases * voltage)
     
 def calc_current(inverter_data, phases, charge_current=0, carState=0):
     houseConsumptionList.append(inverter_data["house_consumption"]) 
     ppvList.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
-    
+    print(inverter_data["house_consumption"])
+    print(house_mean)
     ppv_current = power_to_current(ppv_mean)
     house_current = power_to_current(house_mean)
     if ppv_current < 6:
@@ -72,12 +66,11 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
         target_current = ppv_current - house_current
 
     battery_soc = inverter_data["battery_soc"]
-    print(f"house_consumption: {house_current} ")
-    print(f"power photovoltaik: {ppv_mean} ")
+    print(f"power use house: {house_mean} -> current use house: {house_current}")
+    print(f"power photovoltaik: {ppv_mean} -> current pv: {ppv_current}")
     print(f"battery_soc: {battery_soc} ")
 
-  
-    return target_current
+    return int(target_current)
 
 def load_control(inverter_data):
     # Beispiel: Wert lesen
