@@ -20,12 +20,14 @@ conn.commit()
 
 async def main():
     print("Verbinde mit Wechselrichter...")
-    inverter = await goodwe.connect('192.168.188.67', 8899, 'ET', 0, 1, 10)
+    inverter = await goodwe.connect('192.168.188.120', 8899, 'ET', 0, 1, 10)
     print("Verbunden. Drücke 'x' zum Beenden.")
 
     try:
         while not keyboard.is_pressed('x'):
             data = await inverter.read_runtime_data()
+            with open("inverter_data.txt", "a", encoding="utf-8") as f:
+                f.write(str(data) + "\n")
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
             # In Datenbank schreiben
