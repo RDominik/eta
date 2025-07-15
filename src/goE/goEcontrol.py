@@ -84,8 +84,8 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     print(f"power use house: {house_mean} -> current use house: {house_current}")
     print(f"power photovoltaik: {ppv_mean} -> current pv: {ppv_current}")
     print(f"battery_soc: {battery_soc} ")
-
-    return int(target_current)
+    target_current = min(int(target_current), 14)
+    return target_current
 
 def write_point(status_data):
     ts = status_data.pop("timestamp", datetime.utcnow())
