@@ -109,7 +109,7 @@ def load_control(inverter_data):
     try:
         status = goE.get_status()
         print("Charge state:", status)
-        currentTarget = calc_current(inverter_data, status["pnp"], status["acu"], status["car"])
+        currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
     except requests.RequestException as e:
         print(f"error get wallbox status: {e}")
         currentTarget = 0
