@@ -38,7 +38,7 @@ def call_wallbox():
         print(f"Error calling wallbox: {e}")
     
 #schedule.every(5).seconds.do(call_inverter)
-schedule.every(30).seconds.do(call_wallbox)
+schedule.every(60).seconds.do(call_wallbox)
 
 async def main():
     global inverter_data
