@@ -91,10 +91,12 @@ def write_point(status_data):
     ts = status_data.pop("timestamp", datetime.utcnow())
     point = Point("goE_wallbox").tag("device", status_data["sse"])
     point = point.time(ts)
+    print(type(status_data["amp"]))
+    print(status_data["amp"])
     point.field("ampere", int(status_data["amp"]))
     point.field("carState", int(status_data["car"]))
     point.field("energyTotal", int(status_data["eto"]))
-    point.field("allowedCharge", int(status_data["alw"]))
+    #point.field("allowedCharge", int(status_data["alw"]))
     point.field("energyConnected", int(status_data["wh"]))
     print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     try:
@@ -108,6 +110,7 @@ def load_control(inverter_data):
     """Query the charging status once and set the charging current"""
     try:
         status = goE.get_status()
+        print("serial number:", status["sse"])
         print("Charge state:", status)
         currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
     except requests.RequestException as e:
@@ -119,7 +122,7 @@ def load_control(inverter_data):
     if currentTarget >= 6:
         print(f"charge current set to {currentTarget}A")
         try:
-            status['amp'] = goE.set_current(currentTarget)
+            status['amp_response'] = goE.set_current(currentTarget)
         except requests.RequestException as e:
             print(f"error set wallbox current: {e}")
             
@@ -134,7 +137,11 @@ def load_control(inverter_data):
                 goE.set_charging(False)
         except requests.RequestException as e:
             print(f"error set wallbox charging off: {e}")
-    write_point(status)
+    try:
+        write_point(status)
+    except Exception as e:
+        print(f"Error writing to InfluxDB: {e}")
+        
 
 # Beispielnutzung
 if __name__ == "__main__":
