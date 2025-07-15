@@ -12,7 +12,8 @@ class goE_wallbox:
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
-    def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh"):
+    def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh,nrg"):
+        # nrg = energy array, U (L1, L2, L3, N), I (L1, L2, L3), P (L1, L2, L3, N, Total), pf (L1, L2, L3, N)
         # alw = car allowed to charge, sse = serial number
         # acu = actual current, amp = max current, wh = energy in Wh since car connected
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
@@ -83,7 +84,6 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     battery_soc = inverter_data["battery_soc"]
     print(f"power use house: {house_mean} -> current use house: {house_current}")
     print(f"power photovoltaik: {ppv_mean} -> current pv: {ppv_current}")
-    print(f"battery_soc: {battery_soc} ")
     target_current = min(int(target_current), 14)
     return target_current
 
