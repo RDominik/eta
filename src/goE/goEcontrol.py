@@ -1,14 +1,20 @@
 import requests
 import statistics
 from collections import deque
+import os
+from datetime import datetime
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+import time
+
 
 class goE_wallbox:
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
-    def get_status(self, filter="alw,acu,amp,car,pnp,eto,frc"):
-        # alw = car allowed to charge
-        # acu = actual current, amp = max current 
+    def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh"):
+        # alw = car allowed to charge, sse = serial number
+        # acu = actual current, amp = max current, wh = energy in Wh since car connected
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
         # eto = energy_total wh = energy in Wh since car connected
         response = requests.get(f"{self.baseURL}/status?filter=={filter}")
@@ -29,17 +35,27 @@ class goE_wallbox:
         response = requests.get(self.baseURL + "/set", params=payload)
         response.raise_for_status()
         return response.json() 
+    
+# InfluxDB Konfiguration
+INFLUX_URL = "http://localhost:8086"
+INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN")
+# INFLUX_TOKEN = "0R7WsRl_3hfg3mYaC4KvCqGsgNmJ2YFgAv8u8EQFzQL0oKWGJaIFAnXKHLil2DiWHMr2KZmbG1xcF-uEivfM4w=="
+INFLUX_ORG = "dominik"
+INFLUX_BUCKET = "goe"
+
+# InfluxDB Client initialisieren
+client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+write_api = client.write_api(write_options=SYNCHRONOUS)
 
 # IP-Adresse deiner go-e Wallbox
 IP = "192.168.188.86"  # <- anpassen!
 goE = goE_wallbox(IP)
 # Basis-URL
 #BASE_URL = f"http://{IP}/api"
-ppvList = deque(maxlen=10)
-houseConsumptionList = deque(maxlen=10)
+ppvList = deque(maxlen=5)
+houseConsumptionList = deque(maxlen=5)
 
 def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurrent=14):
-
     if surplusPower <= 0:
         return 0
     return surplusPower / (phases * voltage)
@@ -49,8 +65,7 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     ppvList.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
-    print(inverter_data["house_consumption"])
-    print(house_mean)
+
     ppv_current = power_to_current(ppv_mean)
     house_current = power_to_current(house_mean)
     if ppv_current < 6:
@@ -72,6 +87,21 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
 
     return int(target_current)
 
+def write_point(status_data):
+    ts = status_data.pop("timestamp", datetime.utcnow())
+    point = Point("goE_wallbox").tag("device", status_data["sse"])
+    point = point.time(ts)
+    point.field("ampere", int(status_data["amp"]))
+    point.field("carState", int(status_data["car"]))
+    point.field("energyTotal", int(status_data["eto"]))
+    point.field("allowedCharge", int(status_data["alw"]))
+    point.field("energyConnected", int(status_data["wh"]))
+    print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+    try:
+        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+    except Exception as e:
+        print(f"Error writing to InfluxDB: {e}")
+
 def load_control(inverter_data):
     # Beispiel: Wert lesen
 
@@ -86,9 +116,6 @@ def load_control(inverter_data):
         status["frc"] = 0
         return
 
-    
-
-    
     if currentTarget >= 6:
         print(f"charge current set to {currentTarget}A")
         status['amp'] = goE.set_current(currentTarget)
@@ -96,25 +123,20 @@ def load_control(inverter_data):
             try:
                 goE.set_charging(True)
             except requests.RequestException as e:
-                print(f"error set wallbox charging: {e}")
+                print(f"error set wallbox charging on: {e}")
     else:
         try:
             if status["frc"] != 1:
                 goE.set_charging(False)
         except requests.RequestException as e:
-            print(f"error set wallbox charging: {e}")
+            print(f"error set wallbox charging off: {e}")
+    write_point(status)
 
 # Beispielnutzung
 if __name__ == "__main__":
     print("Ladezustand vorher:")
-    print(goE.get_status())
-    goE.set_current(8)
-    goE.set_charging(True)
-    # print("Setze Ladestrom auf 10A...")
-    # print(set_current(13))
+    status = goE.get_status()
+    print(status)
 
-    # print("Starte Ladevorgang...")
-    # set_charging(True)
+    write_point(status)
 
-    # print("Neuer Ladezustand:")
-    # print(get_status())
