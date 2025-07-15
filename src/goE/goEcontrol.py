@@ -118,7 +118,11 @@ def load_control(inverter_data):
 
     if currentTarget >= 6:
         print(f"charge current set to {currentTarget}A")
-        status['amp'] = goE.set_current(currentTarget)
+        try:
+            status['amp'] = goE.set_current(currentTarget)
+        except requests.RequestException as e:
+            print(f"error set wallbox current: {e}")
+            
         if status["frc"] != 0:
             try:
                 goE.set_charging(True)
