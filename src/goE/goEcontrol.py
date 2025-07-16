@@ -6,7 +6,7 @@ from datetime import datetime
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import time
-
+from influx_bucket import influxConfig
 
 class goE_wallbox:
     def __init__(self, ip):
@@ -14,7 +14,7 @@ class goE_wallbox:
 
     def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh,nrg"):
         # nrg = energy array, U (L1, L2, L3, N), I (L1, L2, L3), P (L1, L2, L3, N, Total), pf (L1, L2, L3, N)
-        # alw = car allowed to charge, sse = serial number
+        # alw = car allowed to charge, sse = serial number, frc = forceState (Neutral=0, Off=1, On=2)
         # acu = actual current, amp = max current, wh = energy in Wh since car connected
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
         # eto = energy_total wh = energy in Wh since car connected
@@ -51,8 +51,7 @@ write_api = client.write_api(write_options=SYNCHRONOUS)
 # IP-Adresse deiner go-e Wallbox
 IP = "192.168.188.86"  # <- anpassen!
 goE = goE_wallbox(IP)
-# Basis-URL
-#BASE_URL = f"http://{IP}/api"
+influx = influxConfig(INFLUX_BUCKET)
 ppvList = deque(maxlen=5)
 houseConsumptionList = deque(maxlen=5)
 
@@ -72,7 +71,7 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     if ppv_current < 6:
         target_current = 0
     elif carState == 2:  # carState == Charging
-        print("Ladevorgang läuft bereits.")
+        print("already charging.")
         surplus_current_charging = ppv_current - (house_current-charge_current)
         if surplus_current_charging > 6:
             target_current = surplus_current_charging
@@ -87,32 +86,28 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     target_current = min(int(target_current), 14)
     return target_current
 
-def write_point(status_data):
+def write_data_to_influx(status_data):
     ts = status_data.pop("timestamp", datetime.utcnow())
     point = Point("goE_wallbox").tag("device", status_data["sse"])
     point = point.time(ts)
-    print(type(status_data["amp"]))
-    print(status_data["amp"])
     point.field("ampere", int(status_data["amp"]))
     point.field("carState", int(status_data["car"]))
     point.field("energyTotal", int(status_data["eto"]))
-    #point.field("allowedCharge", int(status_data["alw"]))
+    point.field("allowedCharge", int(status_data["frc"]))
     point.field("energyConnected", int(status_data["wh"]))
-    print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+    print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     try:
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
     except Exception as e:
         print(f"Error writing to InfluxDB: {e}")
 
 def load_control(inverter_data):
-    # Beispiel: Wert lesen
 
     """Query the charging status once and set the charging current"""
     try:
         status = goE.get_status()
-        print("serial number:", status["sse"])
-        print("Charge state:", status)
         currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
+        write_data_to_influx(status)    
     except requests.RequestException as e:
         print(f"error get wallbox status: {e}")
         currentTarget = 0
@@ -127,21 +122,20 @@ def load_control(inverter_data):
             print(f"error set wallbox current: {e}")
             
         if status["frc"] != 0:
-            try:
-                goE.set_charging(True)
-            except requests.RequestException as e:
-                print(f"error set wallbox charging on: {e}")
+            chargingState = True
     else:
+        if status["frc"] != 1:
+            chargingState = False
+
+    if chargingState != previousChargingState:
         try:
-            if status["frc"] != 1:
-                goE.set_charging(False)
+            goE.set_charging(False)
         except requests.RequestException as e:
-            print(f"error set wallbox charging off: {e}")
-    try:
-        write_point(status)
-    except Exception as e:
-        print(f"Error writing to InfluxDB: {e}")
-        
+            print(f"error set wallbox charging {chargingState}: {e}")
+
+    previousChargingState = chargingState
+
+
 
 # Beispielnutzung
 if __name__ == "__main__":
@@ -149,5 +143,5 @@ if __name__ == "__main__":
     status = goE.get_status()
     print(status)
 
-    write_point(status)
+    write_data_to_influx(status)  
 
