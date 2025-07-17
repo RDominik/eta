@@ -9,6 +9,9 @@ import time
 from influx_bucket import influxConfig
 
 class goE_wallbox:
+    chargingState = False
+    previousChargingState = False
+    
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
@@ -113,7 +116,7 @@ def load_control(inverter_data):
         currentTarget = 0
         status["frc"] = 0
         return
-
+    print(f"current status: {currentTarget}")
     if currentTarget >= 6:
         print(f"charge current set to {currentTarget}A")
         try:
@@ -122,18 +125,16 @@ def load_control(inverter_data):
             print(f"error set wallbox current: {e}")
             
         if status["frc"] != 0:
-            chargingState = True
+            goE.chargingState = True
+            goE.set_charging(True)
     else:
         if status["frc"] != 1:
-            chargingState = False
-
-    if chargingState != previousChargingState:
-        try:
+            goE.chargingState = False
             goE.set_charging(False)
-        except requests.RequestException as e:
-            print(f"error set wallbox charging {chargingState}: {e}")
+    print(f"charging state: {goE.chargingState}")
 
-    previousChargingState = chargingState
+
+    goE.previousChargingState = goE.chargingState
 
 
 
