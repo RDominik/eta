@@ -41,15 +41,7 @@ class goE_wallbox:
         return response.json() 
     
 # InfluxDB Konfiguration
-# INFLUX_URL = "http://localhost:8086"
-# INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN")
-# # INFLUX_TOKEN = "0R7WsRl_3hfg3mYaC4KvCqGsgNmJ2YFgAv8u8EQFzQL0oKWGJaIFAnXKHLil2DiWHMr2KZmbG1xcF-uEivfM4w=="
-# INFLUX_ORG = "dominik"
 INFLUX_BUCKET = "goe"
-
-# InfluxDB Client initialisieren
-# client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-# write_api = client.write_api(write_options=SYNCHRONOUS)
 
 # IP-Adresse deiner go-e Wallbox
 IP = "192.168.188.86"  # <- anpassen!
@@ -97,10 +89,6 @@ def write_data_to_influx(status_data):
     point.field("energyConnected", int(status_data["wh"]))
     print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     influx.write_bucket_point(point)
-    # try:
-    #     write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
-    # except Exception as e:
-    #     print(f"Error writing to InfluxDB: {e}")
 
 def mean_calculation(inverter_data):
     global ppv_mean
@@ -109,13 +97,14 @@ def mean_calculation(inverter_data):
     ppvList.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
-    
+
 def load_control(inverter_data):
 
     """Query the charging status once and set the charging current"""
     try:
         status = goE.get_status()
         currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
+        print(f"current energy: {status['nrg'][12]}kW")
         write_data_to_influx(status)    
     except requests.RequestException as e:
         print(f"error get wallbox status: {e}")
