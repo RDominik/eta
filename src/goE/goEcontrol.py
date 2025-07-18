@@ -55,8 +55,8 @@ write_api = client.write_api(write_options=SYNCHRONOUS)
 IP = "192.168.188.86"  # <- anpassen!
 goE = goE_wallbox(IP)
 influx = influxConfig(INFLUX_BUCKET)
-ppvList = deque(maxlen=5)
-houseConsumptionList = deque(maxlen=5)
+ppvList = deque(maxlen=2)
+houseConsumptionList = deque(maxlen=2)
 
 def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurrent=14):
     if surplusPower <= 0:
