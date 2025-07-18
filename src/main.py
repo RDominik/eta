@@ -40,7 +40,6 @@ def call_wallbox():
 def wallbox_mean_calculation():
     try:
         goEcontrol.mean_calculation(inverter_data)
-        print("wallbox control finished ")
     except Exception as e:
         print(f"Error mean calculation wallbox: {e}")
     
