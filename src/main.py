@@ -36,9 +36,17 @@ def call_wallbox():
         print("wallbox control finished ")
     except Exception as e:
         print(f"Error calling wallbox: {e}")
+
+def wallbox_mean_calculation():
+    try:
+        goEcontrol.mean_calculation(inverter_data)
+        print("wallbox control finished ")
+    except Exception as e:
+        print(f"Error mean calculation wallbox: {e}")
     
 #schedule.every(5).seconds.do(call_inverter)
 schedule.every(60).seconds.do(call_wallbox)
+schedule.every(5).seconds.do(wallbox_mean_calculation)
 
 async def main():
     global inverter_data
