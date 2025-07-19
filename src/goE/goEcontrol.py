@@ -9,8 +9,6 @@ import time
 from influx_bucket import influxConfig
 
 class goE_wallbox:
-    chargingState = False
-    previousChargingState = False
     
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
@@ -87,7 +85,7 @@ def write_data_to_influx(status_data):
     point.field("energyTotal", int(status_data["eto"]))
     point.field("allowedCharge", int(status_data["frc"]))
     point.field("energyConnected", int(status_data["wh"]))
-    point.field("totalEnergy", float(status_data["nrg"][12]))
+    point.field("currentEnergy", float(status_data["nrg"][11]))
     print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     influx.write_bucket_point(point)
 
@@ -105,7 +103,7 @@ def load_control(inverter_data):
     try:
         status = goE.get_status()
         currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
-        print(f"current energy: {status['nrg'][12]}kW")
+        print(f"current energy: {status['nrg'][11]}kW")
         write_data_to_influx(status)    
     except requests.RequestException as e:
         print(f"error get wallbox status: {e}")
@@ -121,13 +119,11 @@ def load_control(inverter_data):
             print(f"error set wallbox current: {e}")
             
         if status["frc"] != 0:
-            goE.chargingState = True
             goE.set_charging(True)
     else:
         if status["frc"] != 1:
-            goE.chargingState = False
             goE.set_charging(False)
-    print(f"charging state: {goE.chargingState}")
+    print(f"charging state: {status['frc']}")
 
 
 
