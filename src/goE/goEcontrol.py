@@ -42,8 +42,13 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import time
 from influx_bucket import influxConfig
 
+CHARGING_ON = 0
+CHARGING_OFF = 1
+DEFAULT_CHARGE_CURRENT = 8
+BATTERY_MIN_CHARGE_SOC = 6
+
 class goE_wallbox:
-    
+    charging_on = False
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
@@ -53,24 +58,36 @@ class goE_wallbox:
         # acu = actual current, amp = max current, wh = energy in Wh since car connected
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
         # eto = energy_total wh = energy in Wh since car connected
-        response = requests.get(f"{self.baseURL}/status?filter=={filter}")
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(f"{self.baseURL}/status?filter=={filter}")
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            print(f"error get wallbox status: {e}")
+            return
          
     def set_current(self, amps: int):
-        """set current in Ampere (14 A)"""
-        amps = max(6, min(amps, 14))
-        payload = {'amp': amps}
-        response = requests.get(self.baseURL + "/set", params=payload)
-        response.raise_for_status()
-        return response.json()  
+        try:
+            """set current in Ampere (14 A)"""
+            amps = max(6, min(amps, 14))
+            payload = {'amp': amps}
+            response = requests.get(self.baseURL + "/set", params=payload)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            print(f"error set wallbox current: {e}")
+            return
     
     def set_charging(self, enable: bool):
-        print("""start or stop charging""")
-        payload = {'frc': 0 if enable else 1}
-        response = requests.get(self.baseURL + "/set", params=payload)
-        response.raise_for_status()
-        return response.json() 
+        try:
+            print("""start or stop charging""")
+            payload = {'frc': 0 if enable else 1}
+            response = requests.get(self.baseURL + "/set", params=payload)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            print(f"error set wallbox charging: {e}")
+            return
     
 # InfluxDB Konfiguration
 INFLUX_BUCKET = "goe"
@@ -135,18 +152,21 @@ and writes it to the configured bucket. The function expects specific keys in st
 @return None
 """
 def write_data_to_influx(status_data):
-    ts = status_data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("goE_wallbox").tag("device", status_data["sse"])
-    point = point.time(ts)
-    point.field("ampere", float(status_data["amp"]))
-    point.field("carState", float(status_data["car"]))
-    point.field("energyTotal", float(status_data["eto"]))
-    point.field("allowedCharge", float(status_data["frc"]))
-    point.field("energyConnected", float(status_data["wh"]))
-    point.field("currentEnergy", float(status_data["nrg"][11]))
-    point.field("modelStatus", float(status_data["modelStatus"]))
-    print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
-    influx.write_bucket_point(point)
+    try:
+        ts = status_data.pop("timestamp", datetime.now(timezone.utc))
+        point = Point("goE_wallbox").tag("device", status_data["sse"])
+        point = point.time(ts)
+        point.field("ampere", float(status_data["amp"]))
+        point.field("carState", float(status_data["car"]))
+        point.field("energyTotal", float(status_data["eto"]))
+        point.field("allowedCharge", float(status_data["frc"]))
+        point.field("energyConnected", float(status_data["wh"]))
+        point.field("currentEnergy", float(status_data["nrg"][11]))
+        point.field("modelStatus", float(status_data["modelStatus"]))
+        print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+        influx.write_bucket_point(point)
+    except Exception as e:
+        print(f"error writing goE data to influxDB: {e}")
 
 def mean_calculation(inverter_data):
     global ppv_mean
@@ -169,33 +189,35 @@ to a minimum value if the battery state of charge (SOC) is low, and manages the 
 def load_control(inverter_data):
 
     """Query the charging status once and set the charging current"""
-    try:
-        status = goE.get_status()
-        currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
 
-        write_data_to_influx(status)    
-    except requests.RequestException as e:
-        print(f"error get wallbox status: {e}")
-        currentTarget = 0
-        status["frc"] = 0
-        return
+    status = goE.get_status()
+    currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
+
+    write_data_to_influx(status)    
+
 
     print(f"modelStatus: {status['modelStatus']}")
     print(f"current status: {currentTarget}")
-    if status['modelStatus'] != 8 and status['modelStatus']  != 9 and status['modelStatus'] != 10:
-        if currentTarget >= 6:
-            print(f"charge current set to {currentTarget}A")
-            try:
-                status['amp_response'] = goE.set_current(currentTarget)
-            except requests.RequestException as e:
-                print(f"error set wallbox current: {e}")
+
+    if currentTarget >= 6:
+        print(f"charge current set to {currentTarget}A")
+
+        status['amp_response'] = goE.set_current(currentTarget)
                 
-            if status["frc"] != 0:
-                goE.set_charging(True)
-        else:
-            if status["frc"] != 1:
-                goE.set_charging(False)
-    print(f"charging state: {status['frc']}")
+        if status["frc"] != CHARGING_ON:
+            goE.charging_on = True
+            goE.set_charging(goE.charging_on)
+    elif inverter_data["battery_soc"] <= BATTERY_MIN_CHARGE_SOC:
+        status['amp_response'] = goE.set_current(DEFAULT_CHARGE_CURRENT)
+                
+        if status["frc"] != CHARGING_ON:
+            goE.charging_on = True
+            goE.set_charging(goE.charging_on)     
+    else:
+        if status["frc"] != CHARGING_OFF and goE.charging_on == True:
+            goE.charging_on = False
+            goE.set_charging(goE.charging_on)
+    print(f"charging state: {status['frc']}, charging: {goE.charging_on}")
 
 
 
