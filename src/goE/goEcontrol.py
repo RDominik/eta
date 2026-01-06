@@ -38,7 +38,7 @@ from collections import deque
 import os
 from datetime import datetime, timezone
 from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
+
 import time
 from influx_bucket import influxConfig
 
