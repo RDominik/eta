@@ -5,11 +5,12 @@ PROJECT_DIR="$(cd "$(dirname "$0")"; pwd)"
 VENV_DIR="$PROJECT_DIR/.venv"
 REQUIREMENTS="$PROJECT_DIR/pyPackageList/list.txt"
 SCRIPT="$PROJECT_DIR/main.py"
+PID_FILE="$VENV_DIR/autostart.pid"
 WATCH=1
 # === Neueste Python-Version finden ===
 PYTHON=$(ls /usr/bin/python3* | grep -E 'python3\.[0-9]+$' | sort -V | tail -n 1)
 echo ">> Verwende Python-Interpreter: $PYTHON"
-export INFLUX_TOKEN="CKicKENZvt3Zhu2hPBABenhNR2IttRwuT0cfCFB2rRp8ZnttuZhOprInAJe0jRfOKPXMvBQymJGbfokZQ8avTA=="
+export INFLUX_TOKEN="KT_MOqmtD5yCIdujbU9xhz8BTIS8Wxvd6yLdwJjFsZ0gkYKsg4ZoIa8KPjIZBNaOK3iFFqafQBtO4CAoxuxdQg=="
 
 # === Virtuelle Umgebung erstellen, falls nicht vorhanden ===
 if [ ! -d "$VENV_DIR" ]; then
@@ -45,20 +46,20 @@ if [ "$WATCH" == "1" ]; then
 
     while true; do
         echo ">> Starte Python-Skript..."
-        python "$SCRIPT" &
+        "$VENV_DIR/bin/python" -u "$SCRIPT" 2>&1 &
         PID=$!
         echo $PID > "$PID_FILE"
 
-        echo ">> Überwache $SCRIPT und $REQUIREMENTS auf Änderungen..."
-        inotifywait -r -e modify,close_write,move,create,delete "$SCRIPT" &
+        echo ">> ï¿½berwache $SCRIPT und $REQUIREMENTS auf ï¿½nderungen..."
+        inotifywait -r -e modify,close_write,move,create,delete "$SCRIPT" "$REQUIREMENTS" &
         WID=$!
 
         # Warte darauf, dass einer der beiden Prozesse fertig wird
         wait -n $PID $WID
 
-        # Wenn inotify ausgelöst wurde ? kill Python
+        # Wenn inotify ausgelï¿½st wurde ? kill Python
         if kill -0 $PID 2>/dev/null; then
-            echo ">> Änderung erkannt – beende Python-Prozess $PID..."
+            echo ">> ï¿½nderung erkannt ï¿½ beende Python-Prozess $PID..."
             kill $PID
             wait $PID 2>/dev/null
         fi
@@ -73,5 +74,5 @@ if [ "$WATCH" == "1" ]; then
 
 else
     echo ">> Starte einmalig: $SCRIPT"
-    python "$SCRIPT"
+    "$VENV_DIR/bin/python" -u "$SCRIPT"
 fi
