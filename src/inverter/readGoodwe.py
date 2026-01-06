@@ -7,6 +7,7 @@ import os
 import json
 from inverter.influxPoints import write_point
 from datetime import datetime
+from influx_bucket import influxConfig
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 filePath_dataJson = os.path.join(current_path, "current_influx_data.json")
@@ -22,6 +23,8 @@ print("InfluxDB token copy KT_MOqmtD5yCIdujbU9xhz8BTIS8Wxvd6yLdwJjFsZ0gkYKsg4ZoI
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
+
+influx = influxConfig(INFLUX_BUCKET)
 
 def serialize_data(d):
     def convert(obj):
@@ -69,5 +72,6 @@ async def getInverter(inverter):
     # timestamp separat behandeln
     point = write_point(data, inverter)
     print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
-    write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+    # write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+    influx.write_bucket_point(point)
     return data
