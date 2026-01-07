@@ -36,7 +36,7 @@ import requests
 import statistics
 from collections import deque
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import time
@@ -47,43 +47,31 @@ class goE_wallbox:
     def __init__(self, ip):
         self.baseURL = f"http://{ip}/api"  # Konvention: Unterstrich = "intern"
 
-    def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh,nrg"):
+    def get_status(self, filter="alw,amp,car,pnp,eto,frc,sse,wh,nrg,modelStatus"):
         # nrg = energy array, U (L1, L2, L3, N), I (L1, L2, L3), P (L1, L2, L3, N, Total), pf (L1, L2, L3, N)
         # alw = car allowed to charge, sse = serial number, frc = forceState (Neutral=0, Off=1, On=2)
         # acu = actual current, amp = max current, wh = energy in Wh since car connected
         # car = carState, null if internal error (Unknown/Error=0, Idle=1, Charging=2, WaitCar=3, Complete=4, Error=5), pnp = numberOfPhases, 
         # eto = energy_total wh = energy in Wh since car connected
-        try:
-            response = requests.get(f"{self.baseURL}/status?filter=={filter}")
-            response.raise_for_status()
-        except requests.RequestException as e:
-            print(f"Error get wallbox status: {e}")
-            return None
+        response = requests.get(f"{self.baseURL}/status?filter=={filter}")
+        response.raise_for_status()
         return response.json()
          
     def set_current(self, amps: int):
         """set current in Ampere (14 A)"""
         amps = max(6, min(amps, 14))
         payload = {'amp': amps}
-        try:
-            response = requests.get(self.baseURL + "/set", params=payload)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            print(f"Error set wallbox current: {e}")
-            return None
+        response = requests.get(self.baseURL + "/set", params=payload)
+        response.raise_for_status()
         return response.json()  
     
     def set_charging(self, enable: bool):
         print("""start or stop charging""")
         payload = {'frc': 0 if enable else 1}
-        try:
-            response = requests.get(self.baseURL + "/set", params=payload)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            print(f"Error set wallbox charging: {e}")
-            return None
-        return response.json()
-
+        response = requests.get(self.baseURL + "/set", params=payload)
+        response.raise_for_status()
+        return response.json() 
+    
 # InfluxDB Konfiguration
 INFLUX_BUCKET = "goe"
 
@@ -112,25 +100,7 @@ def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurre
     if surplusPower <= 0:
         return 0
     return surplusPower / (phases * voltage)
-
-"""
-Calculates the target charging current based on inverter data, number of phases, 
-current charge, and car state.
-
-The function determines the available surplus current from photovoltaic generation 
-after accounting for house consumption and charging current. It applies logic to 
-ensure charging only occurs when sufficient surplus is available and limits the 
-maximum current.
-
-Args:
-    inverter_data (dict): Data from the inverter, including power values.
-    phases (int): Number of phases used for charging.
-    charge_current (int, optional): Current already being used for charging. Defaults to 0.
-    carState (int, optional): State of the car (e.g., 2 for charging). Defaults to 0.
-
-Returns:
-    int: The calculated target charging current, limited to a maximum of 14A.
-    """
+    
 def calc_current(inverter_data, phases, charge_current=0, carState=0):
 
     ppv_current = power_to_current(ppv_mean)
@@ -147,7 +117,7 @@ def calc_current(inverter_data, phases, charge_current=0, carState=0):
     else:
         target_current = ppv_current - house_current
 
-
+    battery_soc = inverter_data["battery_soc"]
     print(f"power use house: {house_mean} -> current use house: {house_current}")
     print(f"power photovoltaik: {ppv_mean} -> current pv: {ppv_current}")
     target_current = min(int(target_current), 14)
@@ -165,41 +135,23 @@ and writes it to the configured bucket. The function expects specific keys in st
 @return None
 """
 def write_data_to_influx(status_data):
-    ts = status_data.pop("timestamp", datetime.utcnow())
+    ts = status_data.pop("timestamp", datetime.now(timezone.utc))
     point = Point("goE_wallbox").tag("device", status_data["sse"])
     point = point.time(ts)
-    point.field("ampere", int(status_data["amp"]))
-    point.field("carState", int(status_data["car"]))
-    point.field("energyTotal", int(status_data["eto"]))
-    point.field("allowedCharge", int(status_data["frc"]))
-    point.field("energyConnected", int(status_data["wh"]))
+    point.field("ampere", float(status_data["amp"]))
+    point.field("carState", float(status_data["car"]))
+    point.field("energyTotal", float(status_data["eto"]))
+    point.field("allowedCharge", float(status_data["frc"]))
+    point.field("energyConnected", float(status_data["wh"]))
     point.field("currentEnergy", float(status_data["nrg"][11]))
-    print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
-    influx.write_bucket_point(point)
-    ts = status_data.pop("timestamp", datetime.utcnow())
-    point = Point("goE_wallbox").tag("device", status_data["sse"])
-    point = point.time(ts)
-    point.field("ampere", int(status_data["amp"]))
-    point.field("carState", int(status_data["car"]))
-    point.field("energyTotal", int(status_data["eto"]))
-    point.field("allowedCharge", int(status_data["frc"]))
-    point.field("energyConnected", int(status_data["wh"]))
-    point.field("currentEnergy", float(status_data["nrg"][11]))
+    point.field("modelStatus", float(status_data["modelStatus"]))
     print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     influx.write_bucket_point(point)
 
-"""
-@brief Berechnet und aktualisiert die Mittelwerte für Photovoltaik-Leistung (ppv) und Hausverbrauch.
-
-Fügt die aktuellen Werte aus inverter_data den jeweiligen Listen hinzu und berechnet den Mittelwert.
-Die Ergebnisse werden in den globalen Variablen ppv_mean und house_mean gespeichert.
-
-@param inverter_data (dict): Dictionary mit den Schlüsseln 'house_consumption' und 'ppv'.
-"""
 def mean_calculation(inverter_data):
     global ppv_mean
     global house_mean
-    houseConsumptionList.append(inverter_data["house_consumption"])
+    houseConsumptionList.append(inverter_data["house_consumption"]) 
     ppvList.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppvList)
     house_mean = statistics.mean(houseConsumptionList)
@@ -220,26 +172,30 @@ def load_control(inverter_data):
     try:
         status = goE.get_status()
         currentTarget = calc_current(inverter_data, status["pnp"], status["amp"], status["car"])
-        write_data_to_influx(status)  
-        print(f"charge current target {currentTarget}A")
-        battery_soc = inverter_data["battery_soc"]
-        if currentTarget >= 6: 
-            status['amp_response'] = goE.set_current(currentTarget)
+
+        write_data_to_influx(status)    
+    except requests.RequestException as e:
+        print(f"error get wallbox status: {e}")
+        currentTarget = 0
+        status["frc"] = 0
+        return
+
+    print(f"modelStatus: {status['modelStatus']}")
+    print(f"current status: {currentTarget}")
+    if status['modelStatus'] != 8 and status['modelStatus']  != 9 and status['modelStatus'] != 10:
+        if currentTarget >= 6:
+            print(f"charge current set to {currentTarget}A")
+            try:
+                status['amp_response'] = goE.set_current(currentTarget)
+            except requests.RequestException as e:
+                print(f"error set wallbox current: {e}")
+                
             if status["frc"] != 0:
                 goE.set_charging(True)
-        elif battery_soc <= 6:
-            status['amp_response'] = goE.set_current(6)
-            goE.set_charging(True)
         else:
             if status["frc"] != 1:
                 goE.set_charging(False)
-
-        print(f"charging state: {status['frc']}")
-    except Exception as e:
-        print(f"error get wallbox status: {e}")
-        return
-    
-
+    print(f"charging state: {status['frc']}")
 
 
 
