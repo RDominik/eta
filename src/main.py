@@ -6,10 +6,11 @@ from goE import goEcontrol
 
 RERUN_TIME = 5  # seconds
 # inverter_data = {
-#     "house_consumption": 1000,
+#     #"house_consumption": 1000,
 #     "ppv": 5000,
 #     "battery_soc": 80
-# }
+# }    
+###########
 inverter_data = None
 inverter = None
 
