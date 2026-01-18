@@ -200,23 +200,27 @@ def load_control(inverter_data):
     print(f"current status: {currentTarget}")
 
     if currentTarget >= 6:
-        print(f"charge current set to {currentTarget}A")
 
+        print(f"charge current set to {currentTarget}A")
         status['amp_response'] = goE.set_current(currentTarget)
-                
+        goE.charging_on = True     
         if status["frc"] != CHARGING_ON:
-            goE.charging_on = True
+            
             goE.set_charging(goE.charging_on)
     elif inverter_data["battery_soc"] <= BATTERY_MIN_CHARGE_SOC:
+
+        print(f"battery low SOC {inverter_data['battery_soc']}%, set default charge current {DEFAULT_CHARGE_CURRENT}A")
         status['amp_response'] = goE.set_current(DEFAULT_CHARGE_CURRENT)
-                
+        goE.charging_on = True       
         if status["frc"] != CHARGING_ON:
-            goE.charging_on = True
             goE.set_charging(goE.charging_on)     
     else:
-        if status["frc"] != CHARGING_OFF and goE.charging_on == True:
+
+        print("stop charging")
+        if status["frc"] != CHARGING_OFF and goE.charging_on == True :
             goE.charging_on = False
             goE.set_charging(goE.charging_on)
+
     print(f"charging state: {status['frc']}, charging: {goE.charging_on}")
 
 
