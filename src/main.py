@@ -11,7 +11,7 @@ RERUN_TIME = 5  # seconds
 #     "ppv": 5000,
 #     "battery_soc": 80
 # }    
-############
+############'
 inverter_data = None
 inverter = None
 
@@ -60,6 +60,7 @@ async def main():
     inverter = await init_routines()
     while True:
         inverter_data = await readGoodwe.getInverter(inverter)
+        wallbox_control.get_inverter_data(inverter_data)
         schedule.run_pending()
         await asyncio.sleep(RERUN_TIME)
 
