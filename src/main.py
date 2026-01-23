@@ -52,7 +52,7 @@ def call_wallbox():
 #         time.sleep(10)
     
 #schedule.every(5).seconds.do(call_inverter)
-schedule.every(10).seconds.do(call_wallbox)
+schedule.every(30).seconds.do(call_wallbox)
 # schedule.every(5).seconds.do(wallbox_mean_calculation)
 
 async def main():
