@@ -71,7 +71,7 @@ def wallbox_control():
     write_data_to_influx(status)    
 
     if wallbox_target["ampere"] >= 6:
-        print(f"charge current set to {wallbox_target["ampere"]}A")
+        print(f"charge current set to {wallbox_target['ampere']}A")
         charging_on = True
   
         publisher[AMP_ARRAY_INDEX][1] = wallbox_target["ampere"]
