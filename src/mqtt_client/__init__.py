@@ -1,5 +1,6 @@
 import time
 import paho.mqtt.client as mqtt
+import json
 
 DURATION = 10 # wait time for messages in seconds
 
@@ -23,6 +24,7 @@ class mqtt_client:
     def on_message(self, client, userdata, msg):
         try:
             payload = msg.payload.decode()
+            payload = json.loads(payload)
         except UnicodeDecodeError:
             payload = msg.payload
         self.msg_count += 1
