@@ -1,7 +1,7 @@
 *.db
 *.pyc
 *.yaml
-*.json
+
 src/.venv/*
 src/autostart.pid
 venv/*
