@@ -4,6 +4,7 @@ import time
 import schedule
 from goE import goEcontrol
 from goE import wallbox_control
+from inverter import readInverter
 
 RERUN_TIME = 5  # seconds
 # inverter_data = {
@@ -15,25 +16,25 @@ RERUN_TIME = 5  # seconds
 inverter_data = None
 inverter = None
 
-async def init_routines():
-    print("Initializing routines...")
-    try:
-        inverter = await readGoodwe.initInverter()
-    except Exception as e:
-        print(f"Error initializing inverter: {e}")
-        await asyncio.sleep(10)
-    return inverter
+# async def init_routines():
+#     print("Initializing routines...")
+#     try:
+#         inverter = await readGoodwe.initInverter()
+#     except Exception as e:
+#         print(f"Error initializing inverter: {e}")
+#         await asyncio.sleep(10)
+#     return inverter
 
-async def call_inverter():
-    global inverter_data
+def call_inverter():
     try:
-        inverter_data = await readGoodwe.readInverter(inverter)
+        # inverter_data = await readGoodwe.readInverter(inverter)
+        inverter_data = readInverter.read_inverter()
         wallbox_control.get_inverter_data(inverter_data)
         print("inverter measurement finished ")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
-        await asyncio.sleep(10)
-    return inverter_data
+        # await asyncio.sleep(10)
+        time.sleep(10)
 
 def call_wallbox():
     try:
@@ -51,18 +52,18 @@ def call_wallbox():
 #         print(f"Error mean calculation wallbox: {e}")
 #         time.sleep(10)
     
-#schedule.every(5).seconds.do(call_inverter)
+schedule.every(2).seconds.do(call_inverter)
 schedule.every(30).seconds.do(call_wallbox)
 # schedule.every(5).seconds.do(wallbox_mean_calculation)
 
 async def main():
-    global inverter_data
-    inverter = await init_routines()
+    # global inverter_data
+    # inverter = await init_routines()
     while True:
-        inverter_data = await readGoodwe.getInverter(inverter)
-        wallbox_control.get_inverter_data(inverter_data)
+        # inverter_data = await readGoodwe.getInverter(inverter)
+        # wallbox_control.get_inverter_data(inverter_data)
         schedule.run_pending()
-        await asyncio.sleep(RERUN_TIME)
+        # await asyncio.sleep(RERUN_TIME)
 
 if __name__ == "__main__":
     asyncio.run(main())
