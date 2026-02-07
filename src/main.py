@@ -2,7 +2,6 @@ from inverter import readGoodwe
 import asyncio
 import time
 import schedule
-from goE import goEcontrol
 from goE import wallbox_control
 from inverter import readInverter
 
