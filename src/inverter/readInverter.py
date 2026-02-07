@@ -17,8 +17,9 @@ inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json")
 
 def read_inverter() -> dict:
     values = inverter.get_values()
-    values["house_consumption"] = (values["pv1_power"]["value"]+values["pv2_power"]["value"])+(values["pbattery1"]["value"])+(values["active_power"]["value"])
     values["ppv"] = values["pv1_power"]["value"]+values["pv2_power"]["value"]+values["pv3_power"]["value"]+values["pv4_power"]["value"]
+    values["house_consumption"] = (values["ppv"])+(values["pbattery1"]["value"])-(values["active_power"]["value"])
+    
     write_points(values)
     return values
 
