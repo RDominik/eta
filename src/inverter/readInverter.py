@@ -55,6 +55,8 @@ def read_inverter_10s_task() -> dict:
     point.field("meter_comm_status", float(data["meter_communication_status"]["value"]))        
     point.field("meter_freq", float(data["meter_frequency"]["value"])) 
     point.field("work_mode", float(data["work_mode"]["value"]))
+    point.time(time.time_ns())
+    influx.write_bucket_point(point)
 
 def write_points(data: dict):
     ts = data.pop("timestamp", datetime.now(timezone.utc))
