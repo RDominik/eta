@@ -30,7 +30,7 @@ def task_30s():
         print(f"Error calling wallbox: {e}")
         time.sleep(10)
     
-schedule.every(2).seconds.do(task_1s)
+schedule.every(1).seconds.do(task_1s)
 schedule.every(10).seconds.do(task_10s)
 schedule.every(30).seconds.do(task_30s)
 
