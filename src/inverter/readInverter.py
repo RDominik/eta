@@ -13,20 +13,18 @@ IP = "192.168.188.200"   # IP deines RS485 → ETH Adapters
 PORT = 4196
 UNIT = 247 
 
-inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json")
-inverter_10s = modbus_client(IP, PORT, UNIT, "inverter/register_config_10s.json")
+inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json","inverter/register_config_10s.json")
+
 
 def read_inverter() -> dict:
-    data = inverter.get_values()
+    data = inverter.get_register1()
     data["ppv"] = data["pv1_power"]["value"]+data["pv2_power"]["value"]+data["pv3_power"]["value"]+data["pv4_power"]["value"]
-    data["house_consumption"] = (data["ppv"])+(data["pbattery1"]["value"])-(data["active_power"]["value"])
-    print(f"active_power: {data['active_power']["value"]} W")
-    print(f"pbattery1: {data['pbattery1']["value"]} W")  
+    data["house_consumption"] = (data["ppv"])+(data["pbattery1"]["value"])-(data["active_power"]["value"]) 
     write_points(data)
     return data
 
 def read_inverter_10s_task() -> dict:
-    data = inverter_10s.get_values()
+    data = inverter.get_register2()
     ts = data.pop("timestamp", datetime.now(timezone.utc))
     point = Point("inverter_data").tag("device", "9020KETT232W0041")
     point = point.time(ts)
