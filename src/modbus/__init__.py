@@ -12,9 +12,10 @@ class modbus_client:
     register: dict
     unit: int    # GoodWe ET Modbus Adresse
 
-    def __init__(self, ip: str, port: int, unit: int, config_json: Path):       
+    def __init__(self, ip: str, port: int, unit: int, config_json: Path, config_json2: Path=None):       
         self.client = ModbusTcpClient(ip, port=port, timeout=2)
         self.register = self.load_registers(config_json)
+        self.register2 = self.load_registers(config_json2)
         self.unit = unit
 
     def load_registers(self, path: str | Path) -> dict:
@@ -71,9 +72,15 @@ class modbus_client:
             entry["value"] = value
         return register
 
-    def get_values(self, register_values: dict = None) -> dict:
+    def get_register1(self) -> dict:
+        return self.get_values(self.register)
+
+    def get_register2(self) -> dict:
+        return self.get_values(self.register2)    
+
+    def get_values(self, register: dict) -> dict:
         values: dict = {}
-        for name, unit in self.register.items():
+        for name, unit in register.items():
             # print(f"self: {self.read_register(unit)}")
             # values.update(self.read_register(unit))
             value = self.read_register(unit)
