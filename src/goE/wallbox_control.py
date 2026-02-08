@@ -64,6 +64,7 @@ def wallbox_control():
     """Query the charging status once and set the charging current"""
     global charging_on
     global battery_soc
+    global ppv_mean
 
     status = wallbox.subscribe(publisher)
     wallbox_target = charge_current_calculation(status["psm"], status["amp"], status["car"], status["nrg"][11])
@@ -78,7 +79,7 @@ def wallbox_control():
         publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
         publisher[PSM_ARRAY_INDEX][1] = wallbox_target["phases"]
 
-    elif battery_soc <= BATTERY_MIN_CHARGE_SOC:
+    elif battery_soc <= BATTERY_MIN_CHARGE_SOC and ppv_mean == 0:
         print(f"battery low SOC {battery_soc}%, set default charge current {DEFAULT_CHARGE_CURRENT}A")
         charging_on = True
 
@@ -141,10 +142,11 @@ def get_inverter_data(inverter_data):
     ppv_list.append(inverter_data["ppv"])
     ppv_mean = statistics.mean(ppv_list)
     house_power_use_mean = statistics.mean(house_power_use_list)
-    battery_soc = inverter_data["battery_soc"]
+    battery_soc = inverter_data["battery_soc"]["value"]
 
 
 def write_data_to_influx(status_data):
+
     try:
         ts = status_data.pop("timestamp", datetime.now(timezone.utc))
         point = Point("goE_wallbox").tag("device", SSE)
