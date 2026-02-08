@@ -29,7 +29,7 @@ def call_inverter():
         # inverter_data = await readGoodwe.readInverter(inverter)
         inverter_data = readInverter.read_inverter()
         wallbox_control.get_inverter_data(inverter_data)
-        print("inverter measurement finished ")
+        print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
         # await asyncio.sleep(10)
