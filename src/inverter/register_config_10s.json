@@ -1,0 +1,309 @@
+{
+
+
+    "block_energy": {
+        "address": 35185,
+        "count": 27,
+        "block": true,
+        "warning_code": {
+            "address": 35185,
+            "count": 1
+        },
+        "safety_country": {
+            "address": 35186,
+            "count": 1
+        },
+        "work_mode": {
+            "address": 35187,
+            "count": 1,
+            "factor": 1
+        },
+        "operation_mode": {
+            "address": 35188,
+            "count": 1,
+            "factor": 1
+        },
+        "error_message": {
+            "address": 35189,
+            "count": 2,
+            "factor": 1
+        },
+        "pv_energy_total": {
+            "address": 35191,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "pv_energy_day": {
+            "address": 35193,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "energy_total_feed": {
+            "address": 35195,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "feeding_hours_total": {
+            "address": 35197,
+            "count": 2,
+            "factor": 1,
+            "unit": "h"
+        },
+        "energy_day_sell": {
+            "address": 35199,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "energy_total_buy": {
+            "address": 35200,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "energy_day_buy": {
+            "address": 35202,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "energy_total_load": {
+            "address": 35203,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "energy_load_day": {
+            "address": 35205,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "battery_charge_energy": {
+            "address": 35206,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "charge_energy_day": {
+            "address": 35208,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "battery_discharge_energy": {
+            "address": 35209,
+            "count": 2,
+            "factor": 0.1,
+            "unit": "kWh"
+        },
+        "discharge_energy_day": {
+            "address": 35211,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "kWh"
+        }
+    },
+    "block_meter": {
+        "address": 36001,
+        "count": 14,
+        "block": true,
+        "rssi": {
+            "address": 36001,
+            "count": 1,
+            "factor": 1
+        },
+        "manufacturer_code": {
+            "address": 36002,
+            "count": 1,
+            "factor": 1
+        },
+        "meter_connect_status": {
+            "address": 36003,
+            "count": 1,
+            "factor": 1
+        },
+        "meter_communication_status": {
+            "address": 36004,
+            "count": 1,
+            "factor": 1
+        },
+        "meter_active_power_r1": {
+            "address": 36005,
+            "count": 1,
+            "factor": 1,
+            "unit": "W",
+            "signed": true
+        },
+        "meter_active_power_s1": {
+            "address": 36006,
+            "count": 1,
+            "factor": 1,
+            "unit": "W",
+            "signed": true
+        },
+        "meter_active_power_t1": {
+            "address": 36007,
+            "count": 1,
+            "factor": 1,
+            "unit": "W",
+            "signed": true
+        },
+        "meter_total_active_power1": {
+            "address": 36008,
+            "count": 1,
+            "factor": 1,
+            "unit": "W",
+            "signed": true
+        },
+        "meter_total_reactive_power": {
+            "address": 36009,
+            "count": 1,
+            "factor": 1,
+            "unit": "W",
+            "signed": false
+        },
+        "meter_pf_r": {
+            "address": 36010,
+            "count": 1,
+            "factor": 0.01
+        },
+        "meter_pf_s": {
+            "address": 36011,
+            "count": 1,
+            "factor": 0.01
+        },
+        "meter_pf_t": {
+            "address": 36012,
+            "count": 1,
+            "factor": 0.01
+        },
+        "meter_power_factor": {
+            "address": 36013,
+            "count": 1,
+            "factor": 0.01
+        },
+        "meter_frequency": {
+            "address": 36014,
+            "count": 1,
+            "factor": 0.01,
+            "unit": "Hz"
+        }
+    },
+    "block_battery": {
+        "address": 37000,
+        "count": 11,
+        "block": true,
+        "drm_status": {
+            "address": 37000,
+            "count": 1,
+            "factor": 1
+        },
+        "battery_type_index": {
+            "address": 37001,
+            "count": 1,
+            "factor": 1
+        },
+        "bms_status": {
+            "address": 37002,
+            "count": 1,
+            "factor": 1
+        },
+        "bms_pack_temperature": {
+            "address": 37003,
+            "count": 1,
+            "factor": 0.1,
+            "unit": "°C"
+        },
+        "bms_charge_imax": {
+            "address": 37004,
+            "count": 1,
+            "factor": 1,
+            "unit": "A"
+        },
+        "bms_discharge_imax": {
+            "address": 37005,
+            "count": 1,
+            "factor": 1,
+            "unit": "A"
+        },
+        "bms_error_code_l": {
+            "address": 37006,
+            "count": 1,
+            "factor": 1
+        },
+        "battery_soc": {
+            "address": 37007,
+            "count": 1,
+            "factor": 1,
+            "unit": "%"
+        },
+        "bms_soh": {
+            "address": 37008,
+            "count": 1,
+            "factor": 1,
+            "unit": "%"
+        },
+        "bms_battery_strings": {
+            "address": 37009,
+            "count": 1,
+            "factor": 1,
+            "unit": "pcs",
+            "signed": false
+        },
+        "bms_warning_code_l": {
+            "address": 37010,
+            "count": 1,
+            "factor": 1
+        }
+    },
+    "backup_ptotal": {
+        "address": 35170,
+        "count": 1,
+        "factor": 1,
+        "unit": "W",
+        "signed": true
+    },
+    "total_load_power": {
+        "address": 35172,
+        "count": 1,
+        "factor": 1,
+        "unit": "W",
+        "signed": true
+    },            
+    "ups_load_percent": {
+        "address": 35173,
+        "count": 1,
+        "factor": 0.01,
+        "unit": "%"
+    },
+    "air_temperature": {
+        "address": 35174,
+        "count": 1,
+        "factor": 0.1,
+        "unit": "°C",
+        "signed": true
+    },
+    "temperature_module": {
+        "address": 35175,
+        "count": 1,
+        "factor": 0.1,
+        "unit": "°C",
+        "signed": true
+    },
+    "temperature_radiator": {
+        "address": 35176,
+        "count": 1,
+        "factor": 0.1,
+        "unit": "°C",
+        "signed": true
+    },
+    "grid_mode": {
+        "address": 35136,
+        "count": 1,
+        "factor": 1
+    }
+}
