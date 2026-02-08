@@ -5,16 +5,24 @@ import schedule
 from goE import wallbox_control
 from inverter import readInverter
 
-def call_inverter():
+def task_1s():
     try:
         inverter_data = readInverter.read_inverter()
         wallbox_control.get_inverter_data(inverter_data)
-        print(f"\n--- new measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+        print(f"\n--- new measurement 1s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
         time.sleep(10)
 
-def call_wallbox():
+def task_10s():
+    try:
+        readInverter.read_inverter_10s_task()
+        print(f"\n--- new measurement 10s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+    except Exception as e:
+        print(f"Error reading inverter data: {e}")
+        time.sleep(10)
+
+def task_30s():
     try:
         wallbox_control.wallbox_control()
         print("wallbox control finished ({time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -22,9 +30,9 @@ def call_wallbox():
         print(f"Error calling wallbox: {e}")
         time.sleep(10)
     
-schedule.every(2).seconds.do(call_inverter)
-schedule.every(30).seconds.do(call_wallbox)
-# schedule.every(5).seconds.do(wallbox_mean_calculation)
+schedule.every(2).seconds.do(task_1s)
+schedule.every(10).seconds.do(task_10s)
+schedule.every(30).seconds.do(task_30s)
 
 async def main():
     while True:
