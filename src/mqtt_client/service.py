@@ -2,7 +2,7 @@ import json
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Sequence, Union
 
 import paho.mqtt.client as mqtt
 
@@ -11,14 +11,17 @@ class MqttService(threading.Thread):
     """MQTT Service running in its own Thread.
 
     - Subscribes to one or more prefixes + keys from JSON config
-    - Stores latest message values per key (topic without prefix)
+    - Supports alternative config format (broker_ip + goE full topics)
+    - Stores latest message values per key (last topic segment, e.g. "alw")
     - Provides getters/setters and a generic publish()
     """
 
     def __init__(self, config_path: str):
         super().__init__(daemon=True)
         self._config_path = Path(config_path)
-        self._config = self._load_config(self._config_path)
+        raw = self._load_config(self._config_path)
+        self._config = self._normalize_config(raw)
+
         self._broker: str = self._config["broker"]
         # prefix can be string or list[str]
         self._prefixes: Sequence[str] = self._normalize_prefixes(self._config.get("prefix", ""))
@@ -49,6 +52,44 @@ class MqttService(threading.Thread):
             return [prefix]
         return list(prefix or [])
 
+    @staticmethod
+    def _normalize_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
+        """Allow both legacy and reviewed JSON formats.
+
+        Legacy:
+        {
+          "broker": "192.168.1.10",
+          "prefix": ["go-eCharger/254959/"],
+          "subscribe": ["alw", "amp"]
+        }
+
+        Reviewed (per PR comment):
+        {
+          "broker_ip": "192.168.188.97",
+          "goE": [
+             "go-eCharger/254959/alw",
+             "go-eCharger/254959/amp"
+          ]
+        }
+        """
+        out = dict(cfg)
+        # broker
+        if "broker" not in out and "broker_ip" in out:
+            out["broker"] = out["broker_ip"]
+        # map goE full topics to subscribeTopics
+        if "goE" in out and isinstance(out["goE"], list):
+            out.setdefault("subscribeTopics", [])
+            # extend, avoiding dups
+            existing = set(out["subscribeTopics"]) if isinstance(out["subscribeTopics"], list) else set()
+            for t in out["goE"]:
+                if t not in existing:
+                    existing.add(t)
+            out["subscribeTopics"] = list(existing)
+            # If no prefix/subscribe provided, leave them empty; we extract keys from last segment
+            out.setdefault("prefix", [])
+            out.setdefault("subscribe", [])
+        return out
+
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         topics = []
         for p in self._prefixes:
@@ -58,12 +99,9 @@ class MqttService(threading.Thread):
             client.subscribe(topics)
 
     def _on_message(self, client, userdata, msg):
-        # Determine key by stripping any matching prefix; fallback to full topic
-        key = msg.topic
-        for p in self._prefixes:
-            if key.startswith(p):
-                key = key[len(p) :]
-                break
+        # Determine key from last topic segment (e.g., .../alw -> "alw")
+        topic = msg.topic or ""
+        key = topic.rsplit("/", 1)[-1] if "/" in topic else topic
         try:
             payload = msg.payload.decode()
             try:
@@ -88,7 +126,8 @@ class MqttService(threading.Thread):
                     mtime = self._config_path.stat().st_mtime
                     if mtime != last_mtime:
                         last_mtime = mtime
-                        self._config = self._load_config(self._config_path)
+                        raw = self._load_config(self._config_path)
+                        self._config = self._normalize_config(raw)
                         self._prefixes = self._normalize_prefixes(self._config.get("prefix", self._prefixes))
                         self._subs = self._config.get("subscribe", self._subs)
                         self._extra_topics = self._config.get("subscribeTopics", self._extra_topics)
