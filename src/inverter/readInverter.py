@@ -9,6 +9,7 @@ import time
 INFLUX_BUCKET = "goodwe"
 influx = influxConfig(INFLUX_BUCKET)
 
+# TODO: externalize via env vars or config file
 IP = "192.168.188.200"   # IP deines RS485 → ETH Adapters
 PORT = 4196
 UNIT = 247 
@@ -18,18 +19,23 @@ inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json","invert
 
 def read_inverter() -> dict:
     data = inverter.get_register1()
-    data["ppv"] = data["pv1_power"]["value"]+data["pv2_power"]["value"]+data["pv3_power"]["value"]+data["pv4_power"]["value"]
-    data["house_consumption"] = (data["ppv"])+(data["pbattery1"]["value"])-(data["active_power"]["value"]) 
+    data["ppv"] = (
+        data["pv1_power"]["value"]
+        + data["pv2_power"]["value"]
+        + data["pv3_power"]["value"]
+        + data["pv4_power"]["value"]
+    )
+    data["house_consumption"] = (
+        data["ppv"] + data["pbattery1"]["value"] - data["active_power"]["value"]
+    )
     write_points(data)
     return data
+
 
 def read_inverter_10s_task() -> dict:
     data = inverter.get_register2()
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", "9020KETT232W0041")
-    point = point.time(ts)
-    point = Point("inverter_data") 
-    point.tag("device", "9020KETT232W0041")
+    point = Point("inverter_data").tag("device", "9020KETT232W0041").time(ts)
     point.field("grid_mode", float(data["grid_mode"]["value"]))
     point.field("warning_code", float(data["warning_code"]["value"]))
     point.field("operation_mode", float(data["operation_mode"]["value"])) 
@@ -58,24 +64,26 @@ def read_inverter_10s_task() -> dict:
     point.time(time.time_ns())
     influx.write_bucket_point(point)
 
+
 def write_points(data: dict):
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", "9020KETT232W0041")
-    point = point.time(ts)
-    point = Point("inverter_data") 
-    point.tag("device", "9020KETT232W0041")
+    point = Point("inverter_data").tag("device", "9020KETT232W0041").time(ts)
     point.field("vpv1", float(data["pv1_voltage"]["value"]))
     point.field("ipv1", float(data["pv1_current"]["value"]))
     point.field("ppv1", int(data["pv1_power"]["value"]))
+
     point.field("vpv2", float(data["pv2_voltage"]["value"]))
     point.field("ipv2", float(data["pv2_current"]["value"]))
     point.field("ppv2", int(data["pv2_power"]["value"]))
-    point.field("vpv2", float(data["pv3_voltage"]["value"]))
-    point.field("ipv2", float(data["pv3_current"]["value"]))
-    point.field("ppv2", int(data["pv3_power"]["value"]))
-    point.field("vpv2", float(data["pv4_voltage"]["value"]))
-    point.field("ipv2", float(data["pv4_current"]["value"]))
-    point.field("ppv2", int(data["pv4_power"]["value"]))
+
+    point.field("vpv3", float(data["pv3_voltage"]["value"]))
+    point.field("ipv3", float(data["pv3_current"]["value"]))
+    point.field("ppv3", int(data["pv3_power"]["value"]))
+
+    point.field("vpv4", float(data["pv4_voltage"]["value"]))
+    point.field("ipv4", float(data["pv4_current"]["value"]))
+    point.field("ppv4", int(data["pv4_power"]["value"]))
+
     point.field("ppv", float(data["ppv"])) 
     point.field("total_inverter_power", float(data["total_inverter_power"]["value"]))
     point.field("active_power", float(data["active_power"]["value"]))
