@@ -134,3 +134,28 @@ class MqttService(threading.Thread):
             payload = json.dumps(value)
         result = self._client.publish(topic, payload, qos=qos, retain=retain)
         return result.rc == mqtt.MQTT_ERR_SUCCESS
+
+    # Convenience properties for common go-eCharger keys
+    @property
+    def amp(self) -> Any:
+        return self.get("amp")
+
+    @amp.setter
+    def amp(self, value: Any) -> None:
+        self.set("amp", value)
+
+    @property
+    def frc(self) -> Any:
+        return self.get("frc")
+
+    @frc.setter
+    def frc(self, value: Any) -> None:
+        self.set("frc", value)
+
+    @property
+    def psm(self) -> Any:
+        return self.get("psm")
+
+    @psm.setter
+    def psm(self, value: Any) -> None:
+        self.set("psm", value)
