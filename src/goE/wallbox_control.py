@@ -22,9 +22,8 @@ PHASE_SWITCH_AUTOMATIC = 0
 PHASE_SWITCH_SINGLE = 1
 PHASE_SWITCH_THREE = 2
 
-# Start MQTT-Service im Hintergrund und nutze Getter/Setter
+# MQTT-Service wird im Hauptprogramm gestartet (kein Autostart hier)
 mqtt_service = MqttService(CONFIG_PATH)
-mqtt_service.start()
 
 # InfluxDB Konfiguration
 INFLUX_BUCKET = "goe"
@@ -164,8 +163,10 @@ def write_data_to_influx(status_data):
 # Beispielnutzung
 if __name__ == "__main__":
     print("wallbox subscribe (service):")
+    mqtt_service.start()
     inverter_data = {"house_consumption": 1200, "ppv": 2400, "battery_soc": 50}
     for index in range(20):
         get_inverter_data(inverter_data)
     for index in range(2):
         wallbox_control()
+    mqtt_service.stop()
