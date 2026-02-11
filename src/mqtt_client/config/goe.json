@@ -1,0 +1,23 @@
+{
+  "broker": "192.168.188.97",
+  "prefix": "go-eCharger/254959/",
+  "subscribe": [
+    "alw",
+    "amp",
+    "car",
+    "cus",
+    "dwo",
+    "eto",
+    "frc",
+    "wh",
+    "nrg",
+    "tma",
+    "psm",
+    "modelStatus"
+  ],
+  "setMap": {
+    "amp": "go-eCharger/254959/amp/set",
+    "frc": "go-eCharger/254959/frc/set",
+    "psm": "go-eCharger/254959/psm/set"
+  }
+}
