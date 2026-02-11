@@ -1,0 +1,6 @@
+goodwe
+influxdb-client
+schedule
+requests
+paho-mqtt
+pymodbus==3.11.4
