@@ -2,36 +2,13 @@ import statistics
 from collections import deque
 from influxdb_client import InfluxDBClient, Point
 from datetime import datetime, timezone
-from mqtt_client import mqtt_client
 from influx_bucket import influxConfig
 import time
 
-# call function as module with python3 -m goE.wallbox_control
-BROKER = "192.168.188.97"
-TOPIC = [
-    "alw",
-    "amp",
-    "car",
-    "cus",
-    "dwo",
-    "eto",
-    "frc",
-    "wh",
-    "nrg",
-    "tma",
-    "psm",
-    "modelStatus",
-]
-publisher = [
-    ["go-eCharger/254959/amp/set", 8],
-    ["go-eCharger/254959/frc/set", 1],
-    ["go-eCharger/254959/psm/set", 0],
-]
-AMP_ARRAY_INDEX = 0
-FRC_ARRAY_INDEX = 1
-PSM_ARRAY_INDEX = 2
+# Neuer MQTT-Service mit JSON-Konfiguration
+from mqtt_client.service import MqttService
 
-PREFIX = "go-eCharger/254959/"
+CONFIG_PATH = "src/mqtt_client/config/goe.json"
 SSE = "254959"
 
 CHARGING_ON = 0
@@ -45,7 +22,10 @@ PHASE_SWITCH_AUTOMATIC = 0
 PHASE_SWITCH_SINGLE = 1
 PHASE_SWITCH_THREE = 2
 
-wallbox = mqtt_client(BROKER, PREFIX, TOPIC)
+# Start MQTT-Service im Hintergrund und nutze Getter/Setter
+mqtt_service = MqttService(CONFIG_PATH)
+mqtt_service.start()
+
 # InfluxDB Konfiguration
 INFLUX_BUCKET = "goe"
 influx = influxConfig(INFLUX_BUCKET)
@@ -60,44 +40,45 @@ battery_soc = 100
 
 
 def wallbox_control():
-    """Query the charging status once and set the charging current"""
+    """Berechne Lade-Parameter basierend auf MQTT-Werten und setze Sollwerte via Setter."""
     global charging_on
     global battery_soc
     global ppv_mean
 
-    status = wallbox.subscribe(publisher)
-    wallbox_target = charge_current_calculation(
-        status["psm"], status["amp"], status["car"], status["nrg"][11]
-    )
+    # Werte per Getter lesen
+    status = mqtt_service.get_all()
+    # Fallbacks
+    amp = status.get("amp", 0)
+    car = status.get("car", 0)
+    psm = status.get("psm", 0)
+    nrg = status.get("nrg", [0] * 12)
+
+    wallbox_target = charge_current_calculation(psm, amp, car, nrg[11] if len(nrg) > 11 else 0)
 
     write_data_to_influx(status)
 
     if wallbox_target["ampere"] >= 6:
         print(f"charge current set to {wallbox_target['ampere']}A")
         charging_on = True
-
-        publisher[AMP_ARRAY_INDEX][1] = wallbox_target["ampere"]
-        publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
-        publisher[PSM_ARRAY_INDEX][1] = wallbox_target["phases"]
+        mqtt_service.set("amp", wallbox_target["ampere"])  # Publish via Setter
+        mqtt_service.set("frc", CHARGING_ON)
+        mqtt_service.set("psm", wallbox_target["phases"])  # Phase mode
 
     elif battery_soc <= BATTERY_MIN_CHARGE_SOC and ppv_mean == 0:
         print(
             f"battery low SOC {battery_soc}%, set default charge current {DEFAULT_CHARGE_CURRENT}A"
         )
         charging_on = True
-
-        publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
-        publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
-        publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
+        mqtt_service.set("amp", DEFAULT_CHARGE_CURRENT)
+        mqtt_service.set("frc", CHARGING_ON)
+        mqtt_service.set("psm", PHASE_SWITCH_AUTOMATIC)
 
     else:
         if charging_on is True:
             print("stop charging")
             charging_on = False
-
-            publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
-            publisher[FRC_ARRAY_INDEX][1] = CHARGING_OFF
-            publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
+            mqtt_service.set("frc", CHARGING_OFF)
+            mqtt_service.set("psm", PHASE_SWITCH_AUTOMATIC)
 
 
 def charge_current_calculation(
@@ -136,7 +117,6 @@ def charge_current_calculation(
 
 
 def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurrent=14):
-    # min power is 1400W with 6A and 1 phase
     if surplusPower <= 0:
         return 0
     return surplusPower / (phases * voltage) + 0.200  # nudge to ensure >=6A when rounded
@@ -157,18 +137,24 @@ def get_inverter_data(inverter_data):
 
 def write_data_to_influx(status_data):
     try:
-        ts = status_data.pop("timestamp", datetime.now(timezone.utc))
+        ts = status_data.pop("timestamp", datetime.now(timezone.utc)) if isinstance(status_data, dict) else datetime.now(timezone.utc)
         point = Point("goE_wallbox").tag("device", SSE).time(ts)
-        point.field("ampere", float(status_data["amp"]))
-        point.field("carState", float(status_data["car"]))
-        point.field("cableLock", float(status_data["cus"]))
-        point.field("chargeLimit", float(status_data["dwo"]))
-        point.field("energyTotal", float(status_data["eto"]))
-        point.field("allowedCharge", float(status_data["frc"]))
-        point.field("energyConnected", float(status_data["wh"]))
-        point.field("currentEnergy", float(status_data["nrg"][11]))
-        point.field("phaseSwitchMode", float(status_data["psm"]))
-        point.field("modelStatus", float(status_data["modelStatus"]))
+        def fnum(x):
+            try:
+                return float(x)
+            except Exception:
+                return 0.0
+        point.field("ampere", fnum(status_data.get("amp")))
+        point.field("carState", fnum(status_data.get("car")))
+        point.field("cableLock", fnum(status_data.get("cus")))
+        point.field("chargeLimit", fnum(status_data.get("dwo")))
+        point.field("energyTotal", fnum(status_data.get("eto")))
+        point.field("allowedCharge", fnum(status_data.get("frc")))
+        point.field("energyConnected", fnum(status_data.get("wh")))
+        nrg = status_data.get("nrg", [0] * 12)
+        point.field("currentEnergy", float(nrg[11] if isinstance(nrg, list) and len(nrg) > 11 else 0))
+        point.field("phaseSwitchMode", fnum(status_data.get("psm")))
+        point.field("modelStatus", fnum(status_data.get("modelStatus")))
         print(f"\n--- new goE measurement ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
         influx.write_bucket_point(point)
     except Exception as e:
@@ -177,7 +163,7 @@ def write_data_to_influx(status_data):
 
 # Beispielnutzung
 if __name__ == "__main__":
-    print("wallbox subscribe:")
+    print("wallbox subscribe (service):")
     inverter_data = {"house_consumption": 1200, "ppv": 2400, "battery_soc": 50}
     for index in range(20):
         get_inverter_data(inverter_data)
