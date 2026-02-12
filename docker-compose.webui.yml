@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  webui:
+    build:
+      context: .
+      dockerfile: webui/Dockerfile
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+}
