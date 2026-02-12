@@ -3,26 +3,14 @@ import statistics
 from collections import deque
 from influxdb_client import InfluxDBClient, Point
 from datetime import datetime, timezone
-from mqtt_client import mqtt_client
+from mqtt_client import MQTTManager
+
 from influx_bucket import influxConfig
 import time
 
 # from influxdb_client import InfluxDBClient, Point
 # call function as module with python3 -m goE.wallbox_control
-BROKER = "192.168.188.97"
-TOPIC = ["alw",
-            "amp",
-            "car",
-            "cus",
-            "dwo",
-            "eto",
-            "frc",
-            "wh",
-            "nrg",
-            "tma",
-            "psm",
-            "modelStatus"
-    ]
+
 publisher = [
     ["go-eCharger/254959/amp/set", 8],
     ["go-eCharger/254959/frc/set", 1],
@@ -32,7 +20,6 @@ AMP_ARRAY_INDEX = 0
 FRC_ARRAY_INDEX = 1
 PSM_ARRAY_INDEX = 2
 
-PREFIX = "go-eCharger/254959/"
 SSE = "254959"
 
 CHARGING_ON = 0
@@ -46,7 +33,7 @@ PHASE_SWITCH_AUTOMATIC = 0
 PHASE_SWITCH_SINGLE    = 1
 PHASE_SWITCH_THREE     = 2
 
-wallbox = mqtt_client(BROKER, PREFIX, TOPIC)
+
 # InfluxDB Konfiguration
 INFLUX_BUCKET = "goe"
 influx = influxConfig(INFLUX_BUCKET)
@@ -59,14 +46,14 @@ house_power_use_mean = 0
 house_power_use_list = deque(maxlen=10)
 battery_soc = 100
 
-def wallbox_control():
+def control(mqtt_client: MQTTManager):
 
     """Query the charging status once and set the charging current"""
     global charging_on
     global battery_soc
     global ppv_mean
 
-    status = wallbox.subscribe(publisher)
+    status = mqtt_client.message
     wallbox_target = charge_current_calculation(status["psm"], status["amp"], status["car"], status["nrg"][11])
 
     write_data_to_influx(status)    
@@ -95,6 +82,8 @@ def wallbox_control():
             publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
             publisher[FRC_ARRAY_INDEX][1] = CHARGING_OFF
             publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
+            
+    mqtt_client.set_keys(publisher)
 
 def charge_current_calculation(phases = 3, charge_current=0, carState=0, current_energy_car=0)-> dict:
     global ppv_mean
@@ -132,7 +121,7 @@ def power_to_current(surplusPower, phases=3, voltage=230, minCurrent=6, maxCurre
     return surplusPower / (phases * voltage) + 0.200 # add 1000 to ensure min current is 6A
 
 
-def get_inverter_data(inverter_data):
+def set_inverter_data(inverter_data):
     global ppv_mean
     global ppv_list
     global house_power_use_list
@@ -165,8 +154,17 @@ def write_data_to_influx(status_data):
         influx.write_bucket_point(point)
     except Exception as e:
         print(f"error writing goE data to influxDB: {e}")
-"alw",
 
+def write_current_energy_to_influx(mqtt_client: MQTTManager):
+    status = mqtt_client.message
+    try:
+        ts = datetime.now(timezone.utc)
+        point = Point("goE_wallbox").tag("device", SSE)
+        point = point.time(ts)
+        point.field("currentEnergy", float(status["nrg"][11]))
+        influx.write_bucket_point(point)
+    except Exception as e:
+        print(f"error writing goE current energy data to influxDB: {e}")
 
 # Beispielnutzung
 if __name__ == "__main__":
