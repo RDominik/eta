@@ -9,7 +9,7 @@ import time
 INFLUX_BUCKET = "goodwe"
 influx = influxConfig(INFLUX_BUCKET)
 
-IP = "192.168.188.200"   # IP deines RS485 → ETH Adapters
+IP = "192.168.188.200"   # eth adapter ip
 PORT = 4196
 UNIT = 247 
 
