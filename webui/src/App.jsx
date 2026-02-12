@@ -20,6 +20,7 @@ export default function App() {
           <NavLink to="/" style={linkStyle} end>Übersicht</NavLink>
           <NavLink to="/wallbox" style={linkStyle}>Wallbox</NavLink>
           <NavLink to="/inverter" style={linkStyle}>Wechselrichter</NavLink>
+          <NavLink to="/energy" style={linkStyle}>PV Energiefluss</NavLink>
         </nav>
         <div style={{ marginTop: 24, fontSize: 12, color: '#666' }}>
           <div>v0.1 (Preview)</div>
