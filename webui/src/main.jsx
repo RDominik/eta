@@ -5,6 +5,7 @@ import App from './App.jsx'
 import DashboardHome from './pages/DashboardHome.jsx'
 import Wallbox from './pages/Wallbox.jsx'
 import Inverter from './pages/Inverter.jsx'
+import EnergyFlow from './pages/EnergyFlow.jsx'
 
 const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ const router = createBrowserRouter([
       { index: true, element: <DashboardHome /> },
       { path: 'wallbox', element: <Wallbox /> },
       { path: 'inverter', element: <Inverter /> },
+      { path: 'energy', element: <EnergyFlow /> },
     ],
   },
 ])
