@@ -72,6 +72,9 @@ python -m src.main
 ## Services
 - Autostart-Skripte unter `service/` und `src/autostart_script.sh`
 
+## Web UI (React)
+- siehe `webui/` für eine einfache Oberfläche mit Seitenleiste und Dashboard-Seiten.
+
 ## Änderungen in diesem Branch
 - CPU-Spin im Main-Loop verhindert (asyncio sleep)
 - Format-String Bug in `task_30s` gefixt
