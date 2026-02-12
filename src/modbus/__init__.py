@@ -1,4 +1,4 @@
-import time
+
 from pymodbus.client.tcp import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
 import struct
