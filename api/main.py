@@ -77,3 +77,40 @@ async def inverter_history(
         })
         t += timedelta(minutes=5)
     return {"series": points, "interval": interval}
+
+# --- ETA Hackschnitzel-Heizung (Mock) ---
+@app.get("/api/heating/summary")
+async def heating_summary() -> Dict[str, Any]:
+    return {
+        "timestamp": now_iso(),
+        "boiler_temp": 72.5,      # Kesseltemperatur (°C)
+        "buffer_top": 68.3,       # Puffer oben (°C)
+        "buffer_bottom": 45.8,    # Puffer unten (°C)
+        "return_temp": 52.1,      # Rücklauf (°C)
+        "outside_temp": 3.4,      # Außentemperatur (°C)
+        "feed_rate": 35,          # Hackschnitzel-Förderrate (%)
+        "burner_status": "on",   # on/off
+    }
+
+@app.get("/api/heating/history")
+async def heating_history(
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = None,
+    interval: str = "5m",
+):
+    points: List[Dict[str, Any]] = []
+    end = datetime.utcnow()
+    start = end - timedelta(hours=12)
+    t = start
+    while t <= end:
+        minute = t.minute
+        points.append({
+            "t": t.isoformat() + 'Z',
+            "boiler_temp": 70 + (minute % 10) * 0.4,
+            "buffer_top": 66 + (minute % 8) * 0.3,
+            "buffer_bottom": 44 + (minute % 6) * 0.25,
+            "return_temp": 50 + (minute % 12) * 0.2,
+            "feed_rate": 30 + (minute % 5) * 3,
+        })
+        t += timedelta(minutes=5)
+    return {"series": points, "interval": interval}
