@@ -1,7 +1,14 @@
+import os
+import asyncio
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+try:
+    from asyncio_mqtt import Client as MqttClient
+except Exception:  # library optional at runtime
+    MqttClient = None  # type: ignore
 
 app = FastAPI(title="ETA API", version="0.1.0")
 
@@ -16,6 +23,81 @@ app.add_middleware(
 
 def now_iso():
     return datetime.utcnow().isoformat() + 'Z'
+
+# --- MQTT wiring (optional) ---
+class InverterState:
+    def __init__(self):
+        self.ppv: float = 2400.0
+        self.house_consumption: float = 1200.0
+        self.battery_soc: float = 56.0
+        self.ts: str = now_iso()
+        self.lock = asyncio.Lock()
+
+    async def update(self, **vals):
+        async with self.lock:
+            for k, v in vals.items():
+                setattr(self, k, v)
+            self.ts = now_iso()
+
+    async def snapshot(self) -> Dict[str, Any]:
+        async with self.lock:
+            return {
+                "timestamp": self.ts,
+                "ppv": self.ppv,
+                "house_consumption": self.house_consumption,
+                "battery_soc": self.battery_soc,
+            }
+
+state = InverterState()
+_mqtt_task: Optional[asyncio.Task] = None
+
+async def _mqtt_runner():
+    host = os.getenv("MQTT_HOST", "test.mosquitto.org")
+    port = int(os.getenv("MQTT_PORT", "1883"))
+    user = os.getenv("MQTT_USER") or None
+    password = os.getenv("MQTT_PASS") or None
+    topic_ppv = os.getenv("MQTT_TOPIC_PPV", "eta/ppv")
+    topic_house = os.getenv("MQTT_TOPIC_HOUSE", "eta/house")
+    topic_soc = os.getenv("MQTT_TOPIC_SOC", "eta/battery/soc")
+    if not MqttClient:
+        return  # library not installed, keep mocks
+    while True:
+        try:
+            auth = {"username": user, "password": password} if user and password else {}
+            async with MqttClient(hostname=host, port=port, **auth) as client:
+                await client.subscribe([(topic_ppv, 0), (topic_house, 0), (topic_soc, 0)])
+                async with client.unfiltered_messages() as messages:
+                    async for msg in messages:
+                        payload = msg.payload.decode(errors="ignore").strip()
+                        try:
+                            val = float(payload)
+                        except Exception:
+                            # basic JSON/path parsing could be added later
+                            continue
+                        if msg.topic == topic_ppv:
+                            await state.update(ppv=val)
+                        elif msg.topic == topic_house:
+                            await state.update(house_consumption=val)
+                        elif msg.topic == topic_soc:
+                            await state.update(battery_soc=val)
+        except Exception:
+            # backoff and retry
+            await asyncio.sleep(3)
+
+@app.on_event("startup")
+async def _startup():
+    global _mqtt_task
+    _mqtt_task = asyncio.create_task(_mqtt_runner())
+
+@app.on_event("shutdown")
+async def _shutdown():
+    global _mqtt_task
+    if _mqtt_task:
+        _mqtt_task.cancel()
+        try:
+            await _mqtt_task
+        except Exception:
+            pass
 
 @app.get("/api/wallbox/status")
 async def wallbox_status() -> Dict[str, Any]:
@@ -50,12 +132,7 @@ async def wallbox_history(
 
 @app.get("/api/inverter/summary")
 async def inverter_summary():
-    return {
-        "timestamp": now_iso(),
-        "ppv": 2400,
-        "house_consumption": 1200,
-        "battery_soc": 56,
-    }
+    return await state.snapshot()
 
 @app.get("/api/inverter/history")
 async def inverter_history(

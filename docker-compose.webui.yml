@@ -16,6 +16,12 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
+    environment:
+      - MQTT_HOST=test.mosquitto.org
+      - MQTT_PORT=1883
+      - MQTT_TOPIC_PPV=eta/ppv
+      - MQTT_TOPIC_HOUSE=eta/house
+      - MQTT_TOPIC_SOC=eta/battery/soc
     ports:
       - "8081:8081"
     restart: unless-stopped
