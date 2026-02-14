@@ -5,7 +5,7 @@ from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import os
 import json
-from inverter.influxPoints import write_point
+from inverter.archive.influxPoints import write_point
 from datetime import datetime
 from influx_bucket import influxConfig
 
