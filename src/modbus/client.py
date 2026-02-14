@@ -32,11 +32,14 @@ class modbus_client:
                 count=count,
                 device_id=self.unit
             )
-        except ModbusIOException:
+            if rr.isError():
+                raise RuntimeError(rr)
+        except ModbusIOException as e:
+            print("Reconnect wegen:", e)
+            self.client.close()
+            self.time.sleep(10)
+            self.client.connect()
             return None
-        
-        if rr.isError():
-            raise RuntimeError(rr)
 
         if count == 1:
         # 16-bit
@@ -48,8 +51,6 @@ class modbus_client:
             self.return_block_values(register, rr.registers)
         else:
             raise ValueError("Unsupported register width")
-
-        # return value * factor
 
         return register
 
@@ -80,10 +81,7 @@ class modbus_client:
     def get_values(self, register: dict) -> dict:
         values: dict = {}
         for name, unit in register.items():
-            # print(f"self: {self.read_register(unit)}")
-            # values.update(self.read_register(unit))
             value = self.read_register(unit)
-            # block = self.read_register(unit)
             block = unit.get("block", False)
             if block is False:
                 values[name] = value
@@ -91,15 +89,18 @@ class modbus_client:
                 values.update(value)
         return values
     
-    def is_register(self, entry) -> bool:
+    @staticmethod
+    def is_register(entry) -> bool:
         return isinstance(entry, dict) and "address" in entry
-
-    def to_signed16(self, val: int, factor:int, signed: bool=False) -> int:
+    
+    @staticmethod
+    def to_signed16(val: int, factor:int, signed: bool=False) -> int:
         if signed == False:
             return val * factor
         return (val - 0x10000) * factor if val & 0x8000 else val * factor
     
-    def to_signed32(self, val: int, factor:int, signed: bool=False):
+    @staticmethod
+    def to_signed32(val: int, factor:int, signed: bool=False):
         if signed == False:
             return val * factor
         return (val - 0x100000000) * factor if val & 0x80000000 else val * factor
