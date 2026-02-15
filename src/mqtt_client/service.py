@@ -64,12 +64,22 @@ class MQTTManager(threading.Thread):
            self.publish(key, value, qos=qos, retain=retain)
 
     def publish(self, topic: Any, msg: Any, qos: int = 0, retain: bool = False):
-        result = self.client.publish(topic, msg,  qos=qos, retain=retain)
-        status = getattr(result, "rc", None)
-        if status != 0:
-            print(f"Failed to send message to topic {topic} rc={status}")
-
-        return result
+        try:
+            result = self.client.publish(topic, msg,  qos=qos, retain=retain)
+            status = getattr(result, "rc", None)
+            if status != 0:
+                print(f"Failed to send message to topic {topic} rc={status}")
+            return result
+        except (BrokenPipeError, OSError, Exception) as e:
+            print(f"MQTT publish error: {e}")
+            try:
+                self.client.reconnect()
+            except Exception:
+                try:
+                    self.client.connect(self.broker, 1883, 60)
+                except Exception:
+                    pass
+            return None
 
     # make on_publish an instance method
     def on_publish(self, client, userdata, mid, *args, **kwargs):
