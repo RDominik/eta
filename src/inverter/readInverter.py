@@ -43,10 +43,10 @@ def read_inverter(mqtt_client: MQTTManager) -> dict:
 def read_inverter_10s_task() -> dict:
     data = inverter.get_register2()
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", {DEVICE})
+    point = Point("inverter_data").tag("device", DEVICE)
     point = point.time(ts)
     point = Point("inverter_data") 
-    point.tag("device", {DEVICE})
+    point.tag("device", DEVICE)
     point.field("grid_mode", float(data["grid_mode"]["value"]))
     point.field("warning_code", float(data["warning_code"]["value"]))
     point.field("operation_mode", float(data["operation_mode"]["value"])) 
@@ -77,10 +77,10 @@ def read_inverter_10s_task() -> dict:
 
 def write_points(data: dict):
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", {DEVICE})
+    point = Point("inverter_data").tag("device", DEVICE)
     point = point.time(ts)
     point = Point("inverter_data") 
-    point.tag("device", {DEVICE})
+    point.tag("device", DEVICE)
     point.field("vpv1", float(data["pv1_voltage"]["value"]))
     point.field("ipv1", float(data["pv1_current"]["value"]))
     point.field("ppv1", int(data["pv1_power"]["value"]))
