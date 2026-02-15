@@ -1,4 +1,3 @@
-from inverter import readGoodwe
 import asyncio
 import time
 import schedule
