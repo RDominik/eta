@@ -13,6 +13,11 @@ class modbus_client:
 
     def __init__(self, ip: str, port: int, unit: int, config_json: Path, config_json2: Path=None):       
         self.client = ModbusTcpClient(ip, port=port, timeout=2)
+        # ensure underlying socket is connected up-front
+        try:
+            self.client.connect()
+        except Exception:
+            pass
         self.register = self.load_registers(config_json)
         self.register2 = self.load_registers(config_json2)
         self.unit = unit
@@ -37,7 +42,7 @@ class modbus_client:
         except ModbusIOException as e:
             print("Reconnect wegen:", e)
             self.client.close()
-            self.time.sleep(10)
+            time.sleep(10)
             self.client.connect()
             return None
 
