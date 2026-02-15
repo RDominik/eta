@@ -3,6 +3,7 @@ from datetime import datetime
 from influxdb_client import InfluxDBClient, Point
 from influx_bucket import influxConfig
 from datetime import datetime, timezone
+from mqtt_client import MQTTManager
 import time
 
 # InfluxDB Konfiguration
@@ -11,25 +12,41 @@ influx = influxConfig(INFLUX_BUCKET)
 
 IP = "192.168.188.200"   # eth adapter ip
 PORT = 4196
-UNIT = 247 
+UNIT = 247
+
+DEVICE= "9020KETT232W0041"
+
+PPV_ARRAY_INDEX = 0
+HC_ARRAY_INDEX = 1
+BSC_ARRAY_INDEX = 2
+
+publisher = [
+    ["goodwe/9020KETT232W0041/ppv", 8],
+    ["goodwe/9020KETT232W0041/house_consumption", 1],
+    ["goodwe/9020KETT232W0041/battery_soc", 0]
+]
 
 inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json","inverter/register_config_10s.json")
 
 
-def read_inverter() -> dict:
+def read_inverter(mqtt_client: MQTTManager) -> dict:
     data = inverter.get_register1()
     data["ppv"] = data["pv1_power"]["value"]+data["pv2_power"]["value"]+data["pv3_power"]["value"]+data["pv4_power"]["value"]
     data["house_consumption"] = (data["ppv"])+(data["pbattery1"]["value"])-(data["active_power"]["value"]) 
     write_points(data)
+    publisher[PPV_ARRAY_INDEX][1] = data["ppv"]
+    publisher[HC_ARRAY_INDEX][1] = data["house_consumption"]
+    publisher[BSC_ARRAY_INDEX][1] = data["battery_soc"]["value"]
+    mqtt_client.set_keys(publisher)
     return data
 
 def read_inverter_10s_task() -> dict:
     data = inverter.get_register2()
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", "9020KETT232W0041")
+    point = Point("inverter_data").tag("device", {DEVICE})
     point = point.time(ts)
     point = Point("inverter_data") 
-    point.tag("device", "9020KETT232W0041")
+    point.tag("device", {DEVICE})
     point.field("grid_mode", float(data["grid_mode"]["value"]))
     point.field("warning_code", float(data["warning_code"]["value"]))
     point.field("operation_mode", float(data["operation_mode"]["value"])) 
@@ -60,10 +77,10 @@ def read_inverter_10s_task() -> dict:
 
 def write_points(data: dict):
     ts = data.pop("timestamp", datetime.now(timezone.utc))
-    point = Point("inverter_data").tag("device", "9020KETT232W0041")
+    point = Point("inverter_data").tag("device", {DEVICE})
     point = point.time(ts)
     point = Point("inverter_data") 
-    point.tag("device", "9020KETT232W0041")
+    point.tag("device", {DEVICE})
     point.field("vpv1", float(data["pv1_voltage"]["value"]))
     point.field("ipv1", float(data["pv1_current"]["value"]))
     point.field("ppv1", int(data["pv1_power"]["value"]))

@@ -9,7 +9,7 @@ mqtt = MQTTManager("mqtt_client/broker_config.json")
 
 def task_1s():
     try:
-        inverter_data = readInverter.read_inverter()
+        inverter_data = readInverter.read_inverter(mqtt)
         wallbox_control.set_inverter_data(inverter_data)
         wallbox_control.write_current_energy_to_influx(mqtt)
         
