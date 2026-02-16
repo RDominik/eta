@@ -44,9 +44,12 @@ class MQTTManager(threading.Thread):
 
         self.client = mqtt.Client(protocol=mqtt.MQTTv311, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         self.client.on_connect = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
         self.client.on_message = self._on_message
         self.client.on_publish = self._on_publish
 
+        ## @brief True when connected to broker, False otherwise.
+        self._connected = threading.Event()
         ## @brief Dict storing the latest received value per short topic key.
         self.received: dict[str, Any] = {}
         ## @brief Lock for thread-safe access to received data.
@@ -90,29 +93,28 @@ class MQTTManager(threading.Thread):
     def publish(self, topic: str, msg: Any, qos: int = 0, retain: bool = False):
         """@brief Publish a message to an MQTT topic.
 
-        Attempts to reconnect on failure.
+        Waits up to 5 seconds for an active broker connection before
+        attempting to publish. Reconnection is handled automatically
+        by paho's loop_forever().
 
         @param topic   MQTT topic string.
         @param msg     Message payload (will be serialized by paho).
         @param qos     MQTT QoS level.
         @param retain  Retain flag.
-        @return paho MQTTMessageInfo or None on failure.
+        @return paho MQTTMessageInfo or None on failure / not connected.
         """
+        if not self._connected.wait(timeout=5):
+            print(f"MQTT not connected, dropping message for {topic}")
+            return None
         try:
             result = self.client.publish(topic, msg, qos=qos, retain=retain)
             status = getattr(result, "rc", None)
             if status != 0:
                 print(f"Failed to send message to topic {topic} rc={status}")
             return result
-        except (BrokenPipeError, OSError, Exception) as e:
-            print(f"MQTT publish error: {e}")
-            try:
-                self.client.reconnect()
-            except Exception:
-                try:
-                    self.client.connect(self.broker, 1883, 60)
-                except Exception:
-                    pass
+        except (BrokenPipeError, OSError) as e:
+            print(f"MQTT publish error: {e} — waiting for auto-reconnect")
+            self._connected.clear()
             return None
 
     def _on_publish(self, client, userdata, mid, *args, **kwargs):
@@ -135,7 +137,17 @@ class MQTTManager(threading.Thread):
         @param properties   MQTT v5 properties (optional).
         """
         print(f"broker connected with result code {reason_code}")
+        self._connected.set()
         client.subscribe(self.topics)
+
+    def _on_disconnect(self, client, userdata, *args, **kwargs):
+        """@brief Callback invoked when the broker connection is lost.
+
+        Clears the connected flag so publish() will wait for reconnect
+        instead of writing to a broken socket.
+        """
+        self._connected.clear()
+        print("⚠️ MQTT disconnected — loop_forever will auto-reconnect")
 
     def _on_message(self, client, userdata, msg):
         """@brief Callback invoked when a subscribed message is received.
