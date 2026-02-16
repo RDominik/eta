@@ -1,71 +1,105 @@
-import time
+## @file service.py
+#  @brief MQTT client service running as a daemon thread.
+#
+#  Provides a thread-safe MQTT manager that subscribes to topics defined
+#  in a JSON configuration, stores incoming message values, and offers
+#  publish/subscribe helpers for inter-module communication.
+
 import paho.mqtt.client as mqtt
 import threading
 import json
 from pathlib import Path
-from typing import Any, Dict, Sequence, Union
+from typing import Any
+
 
 class MQTTManager(threading.Thread):
-    """MQTT Service running in its own Thread.
+    """@brief MQTT service running in its own daemon thread.
 
-    - Subscribes to one or more prefixes + keys from JSON config
-    - Stores latest message values per key (topic without prefix)
-    - Provides getters/setters and a generic publish()
+    Subscribes to topics from a JSON config file, stores the latest
+    received value per topic key, and provides thread-safe getters
+    and a generic publish method.
+
+    @param broker_config  Path to the JSON broker configuration file.
     """
-    broker = "localhost"
-    prefix = ""
-    api_keys = []
-    topics = []
-    msg_values = {}
-    msg_count = 0
+
     def __init__(self, broker_config: Path):
         super().__init__(daemon=True)
-        config = self.load_registers(broker_config)
-        # broker IP (fallbacks)
+        config = self._load_config(broker_config)
+
+        ## @brief MQTT broker hostname/IP.
         self.broker = config.get("broker_ip") or config.get("broker") or "localhost"
-        # collect all list-valued items from the JSON (don't assume the key name)
+
+        # Collect all list-valued items from JSON as subscription topics
         topics_list: list[str] = []
         for section, entries in config.items():
-            if section == "broker_ip" or section == "broker":
+            if section in ("broker_ip", "broker"):
                 continue
             if isinstance(entries, list):
                 for item in entries:
                     if isinstance(item, str):
                         topics_list.append(item)
-        # convert to (topic, qos) tuples for subscribe
+
+        ## @brief List of (topic, qos) tuples for MQTT subscription.
         self.topics = [(entry, 0) for entry in topics_list]
 
-        self.client = mqtt.Client(protocol=mqtt.MQTTv311,callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-        self.client.on_publish = self.on_publish
+        self.client = mqtt.Client(protocol=mqtt.MQTTv311, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+        self.client.on_connect = self._on_connect
+        self.client.on_message = self._on_message
+        self.client.on_publish = self._on_publish
 
-        self.received = {}           # <-- initialize as dict
-        # locks for critical sections
+        ## @brief Dict storing the latest received value per short topic key.
+        self.received: dict[str, Any] = {}
+        ## @brief Lock for thread-safe access to received data.
         self.rx_lock = threading.Lock()
-    
+
     @staticmethod
-    def load_registers(path: str | Path) -> dict:
+    def _load_config(path: str | Path) -> dict:
+        """@brief Load broker configuration from a JSON file.
+        @param path  Path to the JSON configuration file.
+        @return dict with configuration data.
+        """
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-        
-    # getter for received messages and publish data with locks to ensure thread safety
+
     @property
-    def message(self):
+    def message(self) -> dict:
+        """@brief Thread-safe getter for all received MQTT messages.
+        @return Copy of the received messages dictionary.
+        """
         with self.rx_lock:
-            return self.received
+            return dict(self.received)
 
     @message.setter
-    def message(self, key: str, value: Any, qos: int = 0, retain: bool = False) -> bool:
-        return self.publish(key, value, qos=qos, retain=retain)
+    def message(self, value: dict) -> None:
+        """@brief Thread-safe setter to replace the received messages dict.
+        @param value  New dictionary of messages.
+        """
+        with self.rx_lock:
+            self.received = value
 
-    def set_keys(self, data: list, qos: int = 0, retain: bool = False) -> bool:
+    def set_keys(self, data: list, qos: int = 0, retain: bool = False) -> None:
+        """@brief Publish multiple key-value pairs via MQTT.
+
+        @param data    List of [topic, value] pairs.
+        @param qos     MQTT Quality of Service level (default 0).
+        @param retain  Whether the broker should retain messages (default False).
+        """
         for key, value in data:
-           self.publish(key, value, qos=qos, retain=retain)
+            self.publish(key, value, qos=qos, retain=retain)
 
-    def publish(self, topic: Any, msg: Any, qos: int = 0, retain: bool = False):
+    def publish(self, topic: str, msg: Any, qos: int = 0, retain: bool = False):
+        """@brief Publish a message to an MQTT topic.
+
+        Attempts to reconnect on failure.
+
+        @param topic   MQTT topic string.
+        @param msg     Message payload (will be serialized by paho).
+        @param qos     MQTT QoS level.
+        @param retain  Retain flag.
+        @return paho MQTTMessageInfo or None on failure.
+        """
         try:
-            result = self.client.publish(topic, msg,  qos=qos, retain=retain)
+            result = self.client.publish(topic, msg, qos=qos, retain=retain)
             status = getattr(result, "rc", None)
             if status != 0:
                 print(f"Failed to send message to topic {topic} rc={status}")
@@ -81,20 +115,38 @@ class MQTTManager(threading.Thread):
                     pass
             return None
 
-    # make on_publish an instance method
-    def on_publish(self, client, userdata, mid, *args, **kwargs):
-        # accept extra args (e.g. properties) from different callback API versions
-        try:
-            print(f"📤 Message published (mid={mid})")
-        except Exception:
-            # best-effort logging if signature differs
-            print("📤 Message published (mid=? )")
+    def _on_publish(self, client, userdata, mid, *args, **kwargs):
+        """@brief Callback invoked when a message has been published.
+        @param client    MQTT client instance.
+        @param userdata  User data (unused).
+        @param mid       Message ID of the published message.
+        """
+        print(f"📤 Message published (mid={mid})")
 
-    def on_connect(self, client, userdata, flags, reason_code, properties=None):
-        print("broker connected with result code " + str(reason_code))
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        """@brief Callback invoked on successful broker connection.
+
+        Subscribes to all configured topics upon connection.
+
+        @param client       MQTT client instance.
+        @param userdata     User data (unused).
+        @param flags        Response flags from the broker.
+        @param reason_code  Connection result code.
+        @param properties   MQTT v5 properties (optional).
+        """
+        print(f"broker connected with result code {reason_code}")
         client.subscribe(self.topics)
 
-    def on_message(self, client, userdata, msg):
+    def _on_message(self, client, userdata, msg):
+        """@brief Callback invoked when a subscribed message is received.
+
+        Stores the decoded payload in self.received keyed by the
+        last segment of the topic path.
+
+        @param client    MQTT client instance.
+        @param userdata  User data (unused).
+        @param msg       MQTTMessage with topic and payload.
+        """
         try:
             payload = msg.payload.decode()
             payload = json.loads(payload)
@@ -106,9 +158,9 @@ class MQTTManager(threading.Thread):
             self.received[short_topic] = payload
 
     def run(self):
+        """@brief Thread entry point – connects to broker and runs the MQTT loop.
 
+        Uses loop_forever() which handles reconnection automatically.
+        """
         self.client.connect(self.broker, 1883, 60)
-        self.client.loop_start()
-
-        while True:            
-            time.sleep(0.1)
+        self.client.loop_forever()
