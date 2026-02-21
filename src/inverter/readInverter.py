@@ -47,7 +47,7 @@ publisher = [
 inverter = modbus_client(IP, PORT, UNIT, "inverter/register_config.json", "inverter/register_config_10s.json")
 
 
-def read_inverter(mqtt_client: MQTTManager) -> dict:
+async def read_inverter(mqtt_client: MQTTManager) -> dict:
     """@brief Read fast-changing inverter registers (2s cycle) and publish via MQTT.
 
     Reads PV voltages, currents, powers, battery and grid data.
@@ -57,7 +57,7 @@ def read_inverter(mqtt_client: MQTTManager) -> dict:
     @param mqtt_client  MQTTManager instance for publishing data.
     @return dict containing all register values plus computed fields.
     """
-    data = inverter.get_register1()
+    data = await inverter.get_register1()
     data["ppv"] = data["pv1_power"]["value"]+data["pv2_power"]["value"]+data["pv3_power"]["value"]+data["pv4_power"]["value"]
     data["house_consumption"] = (data["ppv"])+(data["pbattery1"]["value"])-(data["active_power"]["value"]) 
     _write_fast_points(data)
@@ -68,13 +68,13 @@ def read_inverter(mqtt_client: MQTTManager) -> dict:
     mqtt_client.set_keys(publisher)
     return data
 
-def read_inverter_10s_task() -> None:
+async def read_inverter_10s_task() -> None:
     """@brief Read slow-changing inverter registers (10s cycle).
 
     Reads energy totals, battery health, meter status, and operational
     mode data. Writes a single InfluxDB data point.
     """
-    data = inverter.get_register2()
+    data = await inverter.get_register2()
     point = Point("inverter_data").tag("device", DEVICE)
     point.field("grid_mode", float(data["grid_mode"]["value"]))
     point.field("warning_code", float(data["warning_code"]["value"]))
@@ -149,4 +149,5 @@ def _write_fast_points(data: dict) -> None:
     influx.write_bucket_point(point)
 
 if __name__ == "__main__":
-    read_inverter_10s_task()
+    import asyncio
+    asyncio.run(read_inverter_10s_task())
