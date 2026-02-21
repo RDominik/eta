@@ -85,6 +85,7 @@ def control(mqtt_client: MQTTManager) -> None:
         publisher[AMP_ARRAY_INDEX][1] = wallbox_target["ampere"]
         publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
         publisher[PSM_ARRAY_INDEX][1] = wallbox_target["phases"]
+        mqtt_client.set_keys(publisher)
 
     elif battery_soc <= BATTERY_MIN_CHARGE_SOC and ppv_mean == 0:
         print(f"battery low SOC {battery_soc}%, set default charge current {DEFAULT_CHARGE_CURRENT}A")
@@ -92,6 +93,7 @@ def control(mqtt_client: MQTTManager) -> None:
         publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
         publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
         publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
+        mqtt_client.set_keys(publisher)
 
     else:
         if charging_on:
@@ -100,8 +102,7 @@ def control(mqtt_client: MQTTManager) -> None:
             publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
             publisher[FRC_ARRAY_INDEX][1] = CHARGING_OFF
             publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
-
-    mqtt_client.set_keys(publisher)
+            mqtt_client.set_keys(publisher)
 
 
 def charge_current_calculation(phases: int = 3, charge_current: int = 0,
