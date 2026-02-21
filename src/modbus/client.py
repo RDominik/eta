@@ -1,23 +1,24 @@
 ## @file client.py
-#  @brief Generic Modbus TCP client for reading holding registers.
+#  @brief Async Modbus TCP client for reading holding registers.
 #
-#  Provides a reusable client that reads register definitions from JSON
+#  Provides a reusable async client that reads register definitions from JSON
 #  configuration files, supports 16-bit and 32-bit values (signed/unsigned),
 #  IEEE-754 floats, and contiguous block reads.
 
-from pymodbus.client.tcp import ModbusTcpClient
+from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
+import asyncio
 import struct
 import json
-import time
 from pathlib import Path
 
 
 class modbus_client:
-    """@brief Modbus TCP client for reading inverter holding registers.
+    """@brief Async Modbus TCP client for reading inverter holding registers.
 
     Connects to a Modbus TCP gateway (e.g. RS485-to-Ethernet adapter),
     reads registers defined in JSON config files, and returns decoded values.
+    All I/O methods are async coroutines.
 
     @param ip          IP address of the Modbus TCP gateway.
     @param port        TCP port number.
@@ -26,21 +27,33 @@ class modbus_client:
     @param config_json2 Optional path to secondary register configuration JSON.
     """
 
-    client: ModbusTcpClient
+    client: AsyncModbusTcpClient
     register: dict
     unit: int
 
     def __init__(self, ip: str, port: int, unit: int, config_json: Path, config_json2: Path = None):
-        self.client = ModbusTcpClient(ip, port=port, timeout=2)
-        try:
-            self.client.connect()
-        except Exception:
-            pass
-        self.register = self.load_registers(config_json)
-        self.register2 = self.load_registers(config_json2) if config_json2 else {}
+        self._ip = ip
+        self._port = port
+        self.client = None
+        self.register = self._load_registers(config_json)
+        self.register2 = self._load_registers(config_json2) if config_json2 else {}
         self.unit = unit
+        self._connected = False
 
-    def load_registers(self, path: str | Path) -> dict:
+    async def connect(self) -> None:
+        """@brief Create the async client (if needed) and establish the TCP connection.
+
+        The AsyncModbusTcpClient is created lazily here — not in __init__ —
+        because it requires a running asyncio event loop.
+        Safe to call multiple times — skips if already connected.
+        """
+        if not self._connected:
+            if self.client is None:
+                self.client = AsyncModbusTcpClient(self._ip, port=self._port, timeout=2)
+            await self.client.connect()
+            self._connected = True
+    @staticmethod
+    def _load_registers(path: str | Path) -> dict:
         """@brief Load register definitions from a JSON file.
 
         @param path  File path to the JSON register configuration.
@@ -49,7 +62,7 @@ class modbus_client:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def read_register(self, register: dict) -> dict:
+    async def _read_register(self, register: dict) -> dict:
         """@brief Read a single register or register block from the device.
 
         Determines the register width (16-bit, 32-bit, or block) and decodes
@@ -58,41 +71,43 @@ class modbus_client:
         @param register  Register definition dict with 'address', 'count', etc.
         @return Updated register dict with 'value' field, or None on error.
         """
+        await self.connect()
         count = register["count"]
         signed = register.get("signed", False)
         factor = register.get("factor", 1)
         floating = register.get("floating", False)
         try:
-            rr = self.client.read_holding_registers(
+            rr = await self.client.read_holding_registers(
                 register["address"],
                 count=count,
                 device_id=self.unit
             )
             if rr.isError():
                 raise RuntimeError(rr)
-        except ModbusIOException as e:
+        except (ModbusIOException, ConnectionError, OSError) as e:
             print("Reconnect wegen:", e)
             self.client.close()
-            time.sleep(10)
-            self.client.connect()
+            self._connected = False
+            await asyncio.sleep(10)
+            await self.connect()
             return None
 
         if count == 1:
             # 16-bit register
-            register["value"] = self.to_signed16(rr.registers[0], signed=signed, factor=factor)
+            register["value"] = self._to_signed16(rr.registers[0], signed=signed, factor=factor)
         elif count == 2:
             # 32-bit register (Big Endian, GoodWe convention)
-            register["value"] = self.to_signed32(
-                self.to_u32(rr.registers[0], rr.registers[1], floating), factor, signed
+            register["value"] = self._to_signed32(
+                self._to_u32(rr.registers[0], rr.registers[1], floating), factor, signed
             )
         elif register.get("block", False) is True:
-            self.return_block_values(register, rr.registers)
+            self._return_block_values(register, rr.registers)
         else:
             raise ValueError("Unsupported register width")
 
         return register
 
-    def return_block_values(self, register: dict, raw_values: list[int]) -> dict:
+    def _return_block_values(self, register: dict, raw_values: list[int]) -> dict:
         """@brief Decode a contiguous block of registers into individual values.
 
         Iterates over sub-register entries within a block definition,
@@ -104,34 +119,22 @@ class modbus_client:
         """
         index = 0
         for name, entry in register.items():
-            if not self.is_register(entry):
+            if not self._is_register(entry):
                 continue
             signed = entry.get("signed", False)
             factor = entry.get("factor", 1)
             floating = entry.get("floating", False)
             if entry["count"] == 1:
-                value = self.to_signed16(raw_values[index], signed=signed, factor=factor)
+                value = self._to_signed16(raw_values[index], signed=signed, factor=factor)
             else:
-                value = self.to_signed32(
-                    self.to_u32(raw_values[index], raw_values[index + 1], floating), factor, signed
+                value = self._to_signed32(
+                    self._to_u32(raw_values[index], raw_values[index + 1], floating), factor, signed
                 )
             index += entry["count"]
             entry["value"] = value
         return register
 
-    def get_register1(self) -> dict:
-        """@brief Read all primary (fast-cycle) registers.
-        @return dict of decoded register values.
-        """
-        return self.get_values(self.register)
-
-    def get_register2(self) -> dict:
-        """@brief Read all secondary (slow-cycle) registers.
-        @return dict of decoded register values.
-        """
-        return self.get_values(self.register2)
-
-    def get_values(self, register: dict) -> dict:
+    async def _get_values(self, register: dict) -> dict:
         """@brief Read and decode all registers from a config dict.
 
         Handles both individual registers and block registers.
@@ -141,7 +144,7 @@ class modbus_client:
         """
         values: dict = {}
         for name, unit in register.items():
-            value = self.read_register(unit)
+            value = await self._read_register(unit)
             block = unit.get("block", False)
             if not block:
                 values[name] = value
@@ -150,7 +153,7 @@ class modbus_client:
         return values
 
     @staticmethod
-    def is_register(entry) -> bool:
+    def _is_register(entry) -> bool:
         """@brief Check whether a dict entry represents a register definition.
         @param entry  Value to check.
         @return True if entry is a dict containing an 'address' key.
@@ -158,7 +161,7 @@ class modbus_client:
         return isinstance(entry, dict) and "address" in entry
 
     @staticmethod
-    def to_signed16(val: int, factor: int = 1, signed: bool = False) -> int:
+    def _to_signed16(val: int, factor: int = 1, signed: bool = False) -> int:
         """@brief Convert a raw 16-bit register value to a (possibly signed) integer.
 
         @param val     Raw unsigned 16-bit value.
@@ -171,7 +174,7 @@ class modbus_client:
         return (val - 0x10000) * factor if val & 0x8000 else val * factor
 
     @staticmethod
-    def to_signed32(val: int, factor: int = 1, signed: bool = False):
+    def _to_signed32(val: int, factor: int = 1, signed: bool = False):
         """@brief Convert a raw 32-bit register value to a (possibly signed) integer.
 
         @param val     Raw unsigned 32-bit value.
@@ -183,7 +186,7 @@ class modbus_client:
             return val * factor
         return (val - 0x100000000) * factor if val & 0x80000000 else val * factor
 
-    def to_u32(self, val1: int, val2: int, floating: bool = False) -> int:
+    def _to_u32(self, val1: int, val2: int, floating: bool = False) -> int:
         """@brief Combine two 16-bit registers into a 32-bit value.
 
         @param val1      High word (MSB).
@@ -192,10 +195,10 @@ class modbus_client:
         @return Combined 32-bit integer or float.
         """
         if floating:
-            return self.u32_to_float(val1, val2)
+            return self._u32_to_float(val1, val2)
         return (val1 << 16) | val2
 
-    def u32_to_float(self, high: int, low: int, swapped: bool = False) -> float:
+    def _u32_to_float(self, high: int, low: int, swapped: bool = False) -> float:
         """@brief Convert two 16-bit registers into an IEEE-754 float.
 
         @param high     High word register value.
@@ -215,4 +218,16 @@ class modbus_client:
         @return dict of primary register configurations.
         """
         return self.register
+    
+    async def get_register1(self) -> dict:
+        """@brief Read all primary (fast-cycle) registers.
+        @return dict of decoded register values.
+        """
+        return await self._get_values(self.register)
+
+    async def get_register2(self) -> dict:
+        """@brief Read all secondary (slow-cycle) registers.
+        @return dict of decoded register values.
+        """
+        return await self._get_values(self.register2)
     
