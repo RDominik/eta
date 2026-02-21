@@ -5,3 +5,4 @@ requests
 paho-mqtt
 pymodbus==3.11.4
 fastapi
+apscheduler
