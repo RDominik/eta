@@ -47,11 +47,12 @@ class modbus_client:
         because it requires a running asyncio event loop.
         Safe to call multiple times — skips if already connected.
         """
-        if not self._connected:
-            if self.client is None:
-                self.client = AsyncModbusTcpClient(self._ip, port=self._port, timeout=2)
+        if self.client is None:
+            self.client = AsyncModbusTcpClient(self._ip, port=self._port, timeout=2)
+        if not self.client.connected:
+            self._connected = False
             await self.client.connect()
-            self._connected = True
+            self._connected = self.client.connected
     @staticmethod
     def _load_registers(path: str | Path) -> dict:
         """@brief Load register definitions from a JSON file.
@@ -88,7 +89,7 @@ class modbus_client:
             print("Reconnect wegen:", e)
             self.client.close()
             self._connected = False
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
             await self.connect()
             return None
 

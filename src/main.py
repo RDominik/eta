@@ -30,7 +30,6 @@ async def task_2s():
         print(f"\n--- new measurement 2s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
-        await asyncio.sleep(10)
 
 
 async def task_10s():
@@ -46,7 +45,6 @@ async def task_10s():
         print(f"\n--- new measurement 10s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
-        await asyncio.sleep(10)
 
 
 async def task_30s():
@@ -61,12 +59,11 @@ async def task_30s():
         print(f"wallbox control finished ({time.strftime('%Y-%m-%d %H:%M:%S')})")
     except Exception as e:
         print(f"Error calling wallbox: {e}")
-        await asyncio.sleep(10)
 
 
-scheduler.add_job(task_2s, "interval", seconds=2, id="task_2s")
-scheduler.add_job(task_10s, "interval", seconds=10, id="task_10s")
-scheduler.add_job(task_30s, "interval", seconds=30, id="task_30s")
+scheduler.add_job(task_2s, "interval", seconds=2, id="task_2s", misfire_grace_time=2)
+scheduler.add_job(task_10s, "interval", seconds=10, id="task_10s", misfire_grace_time=5)
+scheduler.add_job(task_30s, "interval", seconds=30, id="task_30s", misfire_grace_time=10)
 
 
 async def main():
