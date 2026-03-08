@@ -41,7 +41,7 @@ async def task_10s():
     @exception Exception Logs error and pauses 10s on failure.
     """
     try:
-        await readInverter.read_inverter_10s_task()
+        
         print(f"\n--- new measurement 10s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
     except Exception as e:
         print(f"Error reading inverter data: {e}")
@@ -60,11 +60,24 @@ async def task_30s():
     except Exception as e:
         print(f"Error calling wallbox: {e}")
 
+async def task_60s():
+    """@brief Periodic 60-second task: reads extended inverter registers.
+
+    Reads slower-changing inverter data (energy totals, battery health, etc.)
+    and writes to InfluxDB.
+
+    @exception Exception Logs error and pauses 10s on failure.
+    """
+    try:
+        await readInverter.read_inverter_60s_task()
+        print(f"\n--- new measurement 60s Task: ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---")
+    except Exception as e:
+        print(f"Error reading inverter data: {e}")
 
 scheduler.add_job(task_2s, "interval", seconds=2, id="task_2s", misfire_grace_time=2)
 scheduler.add_job(task_10s, "interval", seconds=10, id="task_10s", misfire_grace_time=5)
 scheduler.add_job(task_30s, "interval", seconds=30, id="task_30s", misfire_grace_time=10)
-
+scheduler.add_job(task_60s, "interval", seconds=60, id="task_60s", misfire_grace_time=10)
 
 async def main():
     """@brief Application entry point.

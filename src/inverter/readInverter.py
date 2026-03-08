@@ -68,8 +68,8 @@ async def read_inverter(mqtt_client: MQTTManager) -> dict:
     mqtt_client.set_keys(publisher)
     return data
 
-async def read_inverter_10s_task() -> None:
-    """@brief Read slow-changing inverter registers (10s cycle).
+async def read_inverter_60s_task() -> None:
+    """@brief Read slow-changing inverter registers (60s cycle).
 
     Reads energy totals, battery health, meter status, and operational
     mode data. Writes a single InfluxDB data point.
