@@ -32,8 +32,9 @@ SSE = "254959"
 ## @{
 CHARGING_ON = 0               ## frc value to enable charging
 CHARGING_OFF = 1              ## frc value to disable charging
-DEFAULT_CHARGE_CURRENT = 8   ## Default charge current in Ampere
-BATTERY_MIN_CHARGE_SOC = 6   ## Minimum battery SOC before grid charging
+DEFAULT_CHARGE_CURRENT = 8    ## Default charge current in Ampere
+MIN_CHARGE_CURRENT = 6        ## Minimum charge current to trigger charging (below this, we consider it not worth charging)
+BATTERY_MIN_CHARGE_SOC = 6    ## Minimum battery SOC before grid charging
 THREE_PHASE_MIN_POWER = 4100  ## Minimum surplus power for 3-phase charging [W]
 SINGLE_PHASE_MIN_POWER = 1400 ## Minimum surplus power for 1-phase charging [W]
 ## @}
@@ -90,9 +91,9 @@ def control(mqtt_client: MQTTManager) -> None:
     elif battery_soc <= BATTERY_MIN_CHARGE_SOC and ppv_mean == 0:
         print(f"battery low SOC {battery_soc}%, set default charge current {DEFAULT_CHARGE_CURRENT}A")
         charging_on = True
-        publisher[AMP_ARRAY_INDEX][1] = DEFAULT_CHARGE_CURRENT
+        publisher[AMP_ARRAY_INDEX][1] = MIN_CHARGE_CURRENT
         publisher[FRC_ARRAY_INDEX][1] = CHARGING_ON
-        publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_AUTOMATIC
+        publisher[PSM_ARRAY_INDEX][1] = PHASE_SWITCH_SINGLE
         mqtt_client.set_keys(publisher)
 
     else:
